@@ -1,3 +1,4 @@
+import scala.annotation.tailrec
 import scala.io.Source
 import scala.util.Using
 
@@ -10,26 +11,34 @@ object Day06 extends App {
     .map(_.toInt)
     .toList
 
-  def population(numbers: List[Int], steps: Int): Long = {
-    val generationSizes = numbers
-      .groupBy(identity)
-      .map { case (num, list) => (num, list.length.toLong) }
+  val population = numbers
+    .groupBy(identity)
+    .map { case (num, list) => (num, list.length.toLong) }
 
-    (1 to steps)
-      .foldLeft(generationSizes) { case (prev, n) => evolveOnce(prev) }
-      .values.sum
-  }
-  def evolveOnce(generation: Map[Int, Long]): Map[Int, Long] = {
-    generation.toList.flatMap {
-      case (k, v) if k == 0 => List((6, v), (8, v))
-      case (k, v) => List((k - 1, v))
+  println(s"part 1: ${population.evolve(80).total()}")
+  println(s"part 2: ${population.evolve(256).total()}")
+
+  type Population = Map[Int, Long]
+
+  implicit class RichPopulation(population: Population) {
+
+    def evolveOnce(): Population = {
+      population.toList.flatMap {
+        case (k, v) if k == 0 => List((6, v), (8, v))
+        case (k, v) => List((k - 1, v))
+      }
+        .groupBy(_._1)
+        .map { case (key, list) => (key, list.map(_._2).sum) }
     }
-      .groupBy(_._1)
-      .map { case (key, list) => (key, list.map(_._2).sum)}
+
+    @tailrec
+    final def evolve(times: Int): Population =
+      if (times > 0)
+        evolveOnce().evolve(times - 1)
+      else
+        population
+
+    def total(): Long = population.values.sum
   }
-
-
-  println(s"part 1: ${population(numbers, 80)}")
-  println(s"part 2: ${population(numbers, 256)}")
 
 }
