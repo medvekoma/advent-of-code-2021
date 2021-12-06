@@ -12,19 +12,15 @@ object Day05 extends App {
   val sections = lines
     .map { case pattern(x1, y1, x2, y2) => ((x1.toInt, y1.toInt), (x2.toInt, y2.toInt))}
     .map (distribute)
-    .groupBy(_._1)
+    .groupMap(_._1)(_._2)
 
   val verticalPoints = sections.getOrElse("Vertical", List())
-    .map(_._2)
     .flatMap { case ((x1, y1), (x2, y2)) => (math.min(y1, y2) to math.max(y1, y2)).map(y => (x1, y))}
   val horizontalPoints = sections.getOrElse("Horizontal", List())
-    .map(_._2)
     .flatMap { case ((x1, y1), (x2, y2)) => (math.min(x1, x2) to math.max(x1, x2)).map(x => (x, y1))}
   val downRightPoints = sections.getOrElse("++", List())
-    .map(_._2)
     .flatMap { case ((x1, y1), (x2, y2)) => (x1 to x2).zip(y1 to y2) }
   val downLeftPoints = sections.getOrElse("+-", List())
-    .map(_._2)
     .flatMap { case ((x1, y1), (x2, y2)) => (x1 to x2).zip(y1 to y2 by -1) }
 
   val points1 = verticalPoints ++ horizontalPoints

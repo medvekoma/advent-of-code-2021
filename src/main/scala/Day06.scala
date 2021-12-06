@@ -27,8 +27,8 @@ object Day06 extends App {
         case (k, v) if k == 0 => List((6, v), (8, v))
         case (k, v) => List((k - 1, v))
       }
-        .groupBy(_._1)
-        .map { case (key, list) => (key, list.map(_._2).sum) }
+        .groupMap(_._1)(_._2)
+        .map { case (key, list) => (key, list.sum) }
     }
 
     @tailrec
