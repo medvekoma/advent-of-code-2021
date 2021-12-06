@@ -11,12 +11,12 @@ object Day06 extends App {
     .toList
 
   def population(numbers: List[Int], steps: Int): Long = {
-    val map2 = numbers
+    val generationSizes = numbers
       .groupBy(identity)
       .map { case (num, list) => (num, list.length.toLong) }
 
     (1 to steps)
-      .foldLeft(map2) { case (prev, n) => evolveOnce(prev) }
+      .foldLeft(generationSizes) { case (prev, n) => evolveOnce(prev) }
       .values.sum
   }
   def evolveOnce(generation: Map[Int, Long]): Map[Int, Long] = {
