@@ -11,7 +11,7 @@ object Day07 extends App {
       .toList
   }.get
 
-  val positionMap = positions
+  val groupedPositions = positions
     .groupBy(identity)
     .map { case (pos, list) => (pos, list.length) }
 
@@ -23,18 +23,15 @@ object Day07 extends App {
     d * (d + 1) / 2
   }
 
-  def totalConsumption(consumption: (Int, Int) => Int)(positionMap: Map[Int, Int], position: Int): Int = {
-    positionMap
-      .map { case (pos, count) => consumption(pos, position) * count }
-      .sum
+  def totalConsumptions(consumption: (Int, Int) => Int, groupedPositions: Map[Int, Int]): Seq[Int] = {
+    (groupedPositions.keys.min to groupedPositions.keys.max)
+      .map(position =>
+        groupedPositions
+          .map { case (pos, count) => consumption(pos, position) * count }
+          .sum
+      )
   }
 
-  def findMinimum(distance: (Int, Int) => Int)(positionMap: Map[Int, Int]): Int = {
-    (positionMap.keys.min to positionMap.keys.max)
-      .map(totalConsumption(distance)(positionMap, _))
-      .min
-  }
-
-  println(s"part 1: ${findMinimum(consumption1)(positionMap)}")
-  println(s"part 2: ${findMinimum(consumption2)(positionMap)}")
+  println(s"part 1: ${totalConsumptions(consumption1, groupedPositions).min}")
+  println(s"part 2: ${totalConsumptions(consumption2, groupedPositions).min}")
 }
