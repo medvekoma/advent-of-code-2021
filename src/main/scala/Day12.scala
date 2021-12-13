@@ -11,46 +11,32 @@ object Day12 extends App {
     .map(_.split("-"))
     .collect { case Array(a, b) => Seq((a, b), (b, a)) }
     .flatten
-    .filter {
-      case (a, b) => b != "start" && a != "end"
-    }
+    .filter { case (a, b) => b != "start" && a != "end" }
     .groupMap(_._1)(_._2)
 
-  def discoverPaths(path: List[String], condition: (List[String], String) => Boolean): List[List[String]] = {
+  def discoverPaths(path: List[String], badPath: (List[String], String) => Boolean): List[List[String]] = {
     val last = path.last
     if (last == "end")
       List(path)
     else {
-      val nextElements = segmentMap(path.last)
-      val (nextLarge, nextSmall) = nextElements.partition(_.head.isUpper)
-      val pathsWithLargeLast = nextLarge.map(next => path :+ next)
-      val pathsWithSmallLast = nextSmall
-        .filter(cave => condition(path, cave))
+      segmentMap(path.last)
+        .filterNot(next => badPath(path, next))
         .map(path :+ _)
-      (pathsWithLargeLast ++ pathsWithSmallLast)
-        .flatMap(path => discoverPaths(path, condition))
+        .flatMap(path => discoverPaths(path, badPath))
     }
   }
 
-  def discoverPaths1(path: List[String]): List[List[String]] = {
-    def condition(path: List[String], cave: String): Boolean =
-      !path.contains(cave)
+  def badPath1(path: List[String], next: String): Boolean =
+    next.head.isLower && path.contains(next)
 
-    discoverPaths(path, condition)
-  }
+  def badPath2(path: List[String], next: String): Boolean =
+    badPath1(path, next) && path
+      .filter(_.head.isLower)
+      .groupBy(identity)
+      .exists { case (_, list) => list.size > 1 }
 
-  def discoverPaths2(path: List[String]): List[List[String]] = {
-    def condition(path: List[String], cave: String): Boolean = {
-      val smallCavesVisitedTwice = path.groupBy(identity)
-        .filter { case (cave, list) => cave.head.isLower && list.size == 2 }
-      !path.contains(cave) || smallCavesVisitedTwice.isEmpty
-    }
-
-    discoverPaths(path, condition)
-  }
-
-  val result = discoverPaths1(List("start"))
-  println(result.size)
-  val result2 = discoverPaths2(List("start"))
+  val result1 = discoverPaths(List("start"), badPath1)
+  println(result1.size)
+  val result2 = discoverPaths(List("start"), badPath2)
   println(result2.size)
 }
