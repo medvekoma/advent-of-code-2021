@@ -33,7 +33,7 @@ object Day12 extends App {
     badPath1(path, next) && path
       .filter(_.head.isLower)
       .groupBy(identity)
-      .exists { case (_, list) => list.size > 1 }
+      .exists { case (_, list) => list.size == 2 }
 
   val result1 = discoverPaths(List("start"), badPath1)
   println(result1.size)
