@@ -1,4 +1,4 @@
-package utils
+package utils.mutable
 
 class Matrix[T](init: Array[Array[T]]) {
   val rows: Int = init.length

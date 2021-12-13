@@ -22,14 +22,15 @@ object Day13 extends App {
     val width: Int = coordinates.map(_._1).max + 1
     val height: Int = coordinates.map(_._2).max + 1
 
+    def mirrorByX: Set[(Int, Int)] =
+      coordinates.map { case (x, y) => (width - x - 1, y) }
+
     def foldByX(foldAt: Int): Set[(Int, Int)] = {
       val page1 = coordinates.filter(_._1 < foldAt)
       val page2 = coordinates.filter(_._1 > foldAt)
         .map { case (x, y) => (x - foldAt - 1, y) }
-      val page2width = page2.map(_._1).max + 1
-      val mirroredPage2 = page2
-        .map { case (x, y) => (page2width - x - 1, y) }
-      page1 ++ mirroredPage2
+        .mirrorByX
+      page1 ++ page2
     }
 
     def flip: Set[(Int, Int)] =

@@ -1,8 +1,8 @@
-import utils.Matrix
-
 import scala.annotation.tailrec
 import scala.io.Source
 import scala.util.Using
+
+import utils.mutable
 
 object Day11 extends App {
 
@@ -11,11 +11,13 @@ object Day11 extends App {
   }.get
 
   type Cell = (Int, Int)
-  val input = lines
+  val array: Array[Array[Int]] = lines
     .map(line => line.toCharArray.map(_.asDigit))
     .toArray
 
-  class Octopuses(matrix: Matrix[Int]) {
+  class Octopuses(array: Array[Array[Int]]) {
+
+    val matrix = new mutable.Matrix(array)
 
     def findNeighbours(cell: Cell): Set[Cell] = {
       val (row, col) = cell
@@ -26,10 +28,10 @@ object Day11 extends App {
       ) yield cell
     }
 
-    def increase(cells: Seq[Cell]): Unit = {
+    def increaseCells(cells: Seq[Cell]): Unit = {
       val cellMap = cells.groupBy(identity).map { case (cell, list) => (cell, list.length) }
       cellMap.foreach {
-        case (cell, value) => matrix(cell) += value
+        case (cell, count) => matrix(cell) += count
       }
     }
 
@@ -37,40 +39,40 @@ object Day11 extends App {
       matrix.cells.foreach(matrix(_) += 1)
 
     @tailrec
-    private def flash(flashed: Set[Cell] = Set.empty): Set[Cell] = {
-      val activated = matrix.cells
+    private def flash(flashedCells: Set[Cell] = Set.empty): Set[Cell] = {
+      val flashingCells = matrix.cells
         .filter(cell => matrix(cell) > 9)
-        .toSet -- flashed
+        .toSet -- flashedCells
 
-      if (activated.isEmpty)
-        flashed
+      if (flashingCells.isEmpty)
+        flashedCells
       else {
-        val activatedNeighbours = activated.toList
+        val neighboursOfFlashingCells = flashingCells.toList
           .flatMap(findNeighbours)
 
-        increase(activatedNeighbours)
-        flash(flashed ++ activated)
+        increaseCells(neighboursOfFlashingCells)
+        flash(flashedCells ++ flashingCells)
       }
     }
 
-    def coolDown(flashed: Set[Cell]): Unit =
-      flashed.foreach(matrix(_) = 0)
+    def coolDown(flashedCells: Set[Cell]): Unit =
+      flashedCells.foreach(cell => matrix(cell) = 0)
 
     def step(): Int = {
       increaseAll()
-      val flashed = flash()
-      coolDown(flashed)
-      flashed.size
+      val flashedCells = flash()
+      coolDown(flashedCells)
+      flashedCells.size
     }
   }
 
-  val octopuses1 = new Octopuses(new Matrix(input))
+  val octopuses1 = new Octopuses(array)
   val part1 = (1 to 100).foldLeft(0) { (total, i) =>
-      total + octopuses1.step()
+    total + octopuses1.step()
   }
   println(s"part 1: $part1")
 
-  val octopuses2 = new Octopuses(new Matrix(input))
+  val octopuses2 = new Octopuses(array)
   var part2 = 1
   while (octopuses2.step() != 100) {
     part2 += 1
