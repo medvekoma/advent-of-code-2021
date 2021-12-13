@@ -56,8 +56,8 @@ object Day13 extends App {
 
   val foldedSheet = instructions.foldLeft(coordinates) { (sheet, instruction) =>
     instruction match {
-      case ('x', foldX) => sheet.foldByX(foldX)
-      case ('y', foldY) => sheet.foldByY(foldY)
+      case ('x', x) => sheet.foldByX(x)
+      case ('y', y) => sheet.foldByY(y)
     }
   }
 

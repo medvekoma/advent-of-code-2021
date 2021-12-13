@@ -16,35 +16,7 @@ object Day12 extends App {
     }
     .groupMap(_._1)(_._2)
 
-  def discoverPart(path: List[String], condition: (String, List[String]) => Boolean): List[List[String]] = {
-    val last = path.last
-    if (last == "end")
-      List(path)
-    else {
-      val nextElements = segmentMap(path.last)
-      val (nextLarge, nextSmall) = nextElements.partition(_.head.isUpper)
-      val pathsWithLargeLast = nextLarge.map(next => path :+ next)
-      val pathsWithSmallLast = nextSmall.filter(cave => condition(cave, path)).map(path :+ _)
-      (pathsWithLargeLast ++ pathsWithSmallLast)
-        .flatMap(path => discoverPart(path, condition))
-    }
-  }
-
-  def discoverPart1(path: List[String]): List[List[String]] = {
-    val last = path.last
-    if (last == "end")
-      List(path)
-    else {
-      val nextElements = segmentMap(path.last)
-      val (nextLarge, nextSmall) = nextElements.partition(_.head.isUpper)
-      val pathsWithLargeLast = nextLarge.map(next => path :+ next)
-      val pathsWithSmallLast = nextSmall.filter(cave => !path.contains(cave)).map(path :+ _)
-      (pathsWithLargeLast ++ pathsWithSmallLast)
-        .flatMap(path => discoverPart1(path))
-    }
-  }
-
-  def discoverPart2(path: List[String]): List[List[String]] = {
+  def discoverPaths(path: List[String], condition: (List[String], String) => Boolean): List[List[String]] = {
     val last = path.last
     if (last == "end")
       List(path)
@@ -53,19 +25,32 @@ object Day12 extends App {
       val (nextLarge, nextSmall) = nextElements.partition(_.head.isUpper)
       val pathsWithLargeLast = nextLarge.map(next => path :+ next)
       val pathsWithSmallLast = nextSmall
-        .filter { next =>
-          val numberOfSmallCavesVisitedTwice = path.groupBy(identity)
-            .count { case (cave, list) => cave.head.isLower && list.size == 2 }
-          !path.contains(next) || numberOfSmallCavesVisitedTwice == 0
-        }
+        .filter(cave => condition(path, cave))
         .map(path :+ _)
       (pathsWithLargeLast ++ pathsWithSmallLast)
-        .flatMap(path => discoverPart2(path))
+        .flatMap(path => discoverPaths(path, condition))
     }
   }
 
-  val result = discoverPart1(List("start"))
+  def discoverPaths1(path: List[String]): List[List[String]] = {
+    def condition(path: List[String], cave: String): Boolean =
+      !path.contains(cave)
+
+    discoverPaths(path, condition)
+  }
+
+  def discoverPaths2(path: List[String]): List[List[String]] = {
+    def condition(path: List[String], cave: String): Boolean = {
+      val smallCavesVisitedTwice = path.groupBy(identity)
+        .filter { case (cave, list) => cave.head.isLower && list.size == 2 }
+      !path.contains(cave) || smallCavesVisitedTwice.isEmpty
+    }
+
+    discoverPaths(path, condition)
+  }
+
+  val result = discoverPaths1(List("start"))
   println(result.size)
-  val result2 = discoverPart2(List("start"))
+  val result2 = discoverPaths2(List("start"))
   println(result2.size)
 }
