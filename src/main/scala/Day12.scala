@@ -16,6 +16,20 @@ object Day12 extends App {
     }
     .groupMap(_._1)(_._2)
 
+  def discoverPart(path: List[String], condition: (String, List[String]) => Boolean): List[List[String]] = {
+    val last = path.last
+    if (last == "end")
+      List(path)
+    else {
+      val nextElements = segmentMap(path.last)
+      val (nextLarge, nextSmall) = nextElements.partition(_.head.isUpper)
+      val pathsWithLargeLast = nextLarge.map(next => path :+ next)
+      val pathsWithSmallLast = nextSmall.filter(cave => condition(cave, path)).map(path :+ _)
+      (pathsWithLargeLast ++ pathsWithSmallLast)
+        .flatMap(path => discoverPart(path, condition))
+    }
+  }
+
   def discoverPart1(path: List[String]): List[List[String]] = {
     val last = path.last
     if (last == "end")
