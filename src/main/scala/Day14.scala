@@ -9,18 +9,18 @@ object Day14 extends App {
 
   val polymerString = lines.head
 
-  // ABCAB -> Map(AB -> 2, BC -> 1, CA -> 1)
+  // ABCAB: Map(AB -> 2, BC -> 1, CA -> 1)
   val polymer: Map[String, Long] = polymerString
     .sliding(2).toList
     .groupBy(identity)
     .map { case (elem, list) => (elem, list.size.toLong) }
 
-  // (AB -> (AX, XB)
+  // AB -> X: Map(AB -> List(AX, XB))
   val rules: Map[String, List[String]] = lines
     .takeRight(lines.size - 2)
     .map(_.split(" -> "))
     .collect { case Array(a, b) => (a, a.head + b + a.last) }
-    .map{ case (a, b) => (a, b.sliding(2).toList) }
+    .map { case (a, b) => (a, b.sliding(2).toList) }
     .toMap
 
   implicit class Polymer(polymer: Map[String, Long]) {
@@ -35,7 +35,6 @@ object Day14 extends App {
       (1 to times).foldLeft(polymer) { (current, _) =>
         current.expandOnce()
       }
-
 
     def evaluateWith(lastChar: Char): Long = {
       val charCounts = polymer.toList
