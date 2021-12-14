@@ -30,10 +30,12 @@ object Day12 extends App {
     next.head.isLower && path.contains(next)
 
   def badPath2(path: List[String], next: String): Boolean =
-    badPath1(path, next) && path
-      .filter(_.head.isLower)
-      .groupBy(identity)
-      .exists { case (_, list) => list.size == 2 }
+    next.head.isLower &&
+      (path :+ next)
+        .filter(_.head.isLower)
+        .groupBy(identity)
+        .collect { case (cave, list) if list.size > 1 => list.size }
+        .sum > 2
 
   val result1 = discoverPaths(List("start"), badPath1)
   println(result1.size)
