@@ -34,9 +34,9 @@ object Day15 extends App {
 
     def popNextUnvisited(): Option[((Int, Int), Int)] = {
       unvisitedCellsWithCost.minByOption { case (cell, value) => value } match {
-        case result @ Some(cellValue) =>
-          unvisited -= cellValue._1
-          unvisitedCellsWithCost.remove(cellValue._1)
+        case result @ Some((cell, value)) =>
+          unvisited -= cell
+          unvisitedCellsWithCost.remove(cell)
           result
         case _ =>
           None
