@@ -1,7 +1,10 @@
+import utils.MatrixExtensions._
+import utils.MutableMatrix
+
+import scala.annotation.tailrec
+import scala.collection.mutable
 import scala.io.Source
 import scala.util.Using
-import utils.mutable
-import utils.immutable.MatrixExtensions._
 
 object Day15 extends App {
 
@@ -9,36 +12,69 @@ object Day15 extends App {
     _.getLines().toList
   }.get
 
-  val valueMatrix = lines.map { row =>
+  val matrix1 = lines.map { row =>
     row.map(_.asDigit).toList
   }
 
-  val startCell = (0, 0)
-  val finishCell = (valueMatrix.rows - 1, valueMatrix.cols - 1)
+  class Dijkstra(matrix: List[List[Int]]) {
+    val startCell: (Int, Int) = (0, 0)
+    val finishCell: (Int, Int) = (matrix.rows - 1, matrix.cols - 1)
 
-  val costArray = Array.tabulate(valueMatrix.rows, valueMatrix.cols)((x, y) => Int.MaxValue)
-  val costMatrix = new mutable.Matrix(costArray)
+    var unvisited: Set[(Int, Int)] = matrix.cells.toSet
+    val costMatrix = new MutableMatrix(Array.tabulate(matrix.rows, matrix.cols)((x, y) => Int.MaxValue))
+    val unvisitedCellsWithCost = new mutable.HashMap[(Int, Int), Int]()
 
-  costMatrix(startCell) = 0
+    def updateCost(cell: (Int, Int), value: Int): Unit =
+      if (value < costMatrix(cell)) {
+        costMatrix(cell) = value
+        unvisitedCellsWithCost(cell) = value
+      }
 
-  type Cell = (Int, Int)
-  type Path = List[Cell]
+    updateCost(startCell, 0)
 
-  def findPaths(lastCell: Cell): Unit = {
-    if (lastCell != finishCell) {
-      val nextCells = valueMatrix.neighbours(lastCell)
-        .filter(cell => costMatrix(cell) > costMatrix(lastCell) + valueMatrix(cell))
-
-      nextCells.foreach(cell => costMatrix(cell) = costMatrix(lastCell) + valueMatrix(cell) )
-
-      println(nextCells)
-
-      nextCells
-        .foreach(findPaths)
+    def popNextUnvisited(): Option[((Int, Int), Int)] = {
+      unvisitedCellsWithCost.minByOption { case (cell, value) => value } match {
+        case result @ Some(cellValue) =>
+          unvisited -= cellValue._1
+          unvisitedCellsWithCost.remove(cellValue._1)
+          result
+        case _ =>
+          None
+      }
     }
+
+    @tailrec
+    final def run(): Unit = {
+      if (unvisited.size % 50000 == 0)
+        println(s"  ... unvisited: ${unvisited.size}")
+      popNextUnvisited() match {
+        case Some((cell, value)) if cell != finishCell =>
+          (matrix.neighbours(cell) & unvisited)
+            .foreach(next => updateCost(next, value + matrix(next)))
+          run()
+        case _ =>
+      }
+    }
+
+    def finishValue: Int = costMatrix(finishCell)
   }
 
-  findPaths(startCell)
-  println(costMatrix(finishCell))
+  val dijkstra1 = new Dijkstra(matrix1)
+  dijkstra1.run()
+  println(s"part 1: ${dijkstra1.finishValue}")
+
+  def enlarge(matrix: List[List[Int]]): List[List[Int]] =
+    Array.tabulate(matrix.rows * 5, matrix.cols * 5) { (r, c) =>
+      val page = r / matrix.rows + c / matrix.cols
+      matrix(r % matrix.rows)(c % matrix.cols) + page match {
+        case v if v > 9 => v - 9
+        case v => v
+      }
+    }.map(_.toList).toList
+
+  val matrix2 = enlarge(matrix1)
+  val dijkstra2 = new Dijkstra(matrix2)
+  dijkstra2.run()
+  println(s"part 2: ${dijkstra2.finishValue}")
 
 }

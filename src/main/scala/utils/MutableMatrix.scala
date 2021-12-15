@@ -1,6 +1,6 @@
-package utils.mutable
+package utils
 
-class Matrix[T](init: Array[Array[T]]) {
+class MutableMatrix[T](init: Array[Array[T]]) {
   val rows: Int = init.length
   val cols: Int = init.headOption.map(_.length).getOrElse(0)
   private val wrapped = init.transpose.transpose

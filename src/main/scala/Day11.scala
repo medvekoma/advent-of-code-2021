@@ -1,8 +1,7 @@
 import scala.annotation.tailrec
 import scala.io.Source
 import scala.util.Using
-
-import utils.mutable
+import utils.MutableMatrix
 
 object Day11 extends App {
 
@@ -17,7 +16,7 @@ object Day11 extends App {
 
   class Octopuses(array: Array[Array[Int]]) {
 
-    val matrix = new mutable.Matrix(array)
+    val matrix = new MutableMatrix(array)
 
     def findNeighbours(cell: Cell): Set[Cell] = {
       val (row, col) = cell

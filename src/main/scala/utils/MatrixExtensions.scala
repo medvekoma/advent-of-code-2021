@@ -1,4 +1,4 @@
-package utils.immutable
+package utils
 
 object MatrixExtensions {
 
@@ -19,5 +19,12 @@ object MatrixExtensions {
 
     def apply(cell: (Int, Int)): T =
       matrix(cell._1)(cell._2)
+
+    def cells: Seq[(Int, Int)] =
+      for (
+        r <- matrix.indices;
+        c <- matrix(r).indices
+      )
+      yield (r, c)
   }
 }
