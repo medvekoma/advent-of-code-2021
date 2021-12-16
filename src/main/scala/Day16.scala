@@ -80,8 +80,8 @@ object Day16 extends App {
     }
 
     def convertBinaryString(binary: String): Long = {
-      binary.reverse.foldLeft((0L, 1L)) {
-        case ((total, pow), bit) => (total + bit.asDigit * pow, 2 * pow)
+      binary.foldRight((0L, 1L)) {
+        case (char, (total, pow)) => (total + char.asDigit * pow, 2 * pow)
       }._1
     }
 
