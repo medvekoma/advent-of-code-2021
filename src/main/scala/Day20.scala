@@ -32,20 +32,22 @@ object Day20 extends App {
     enhancementString(index)
   }
 
-  def enhance(inputImage: List[List[Int]], times: Int): List[List[Int]] = {
-    (1 to times).foldLeft(inputImage, 0) { case ((input, default), _) =>
-      val output = Array.tabulate(input.rows + 2, input.cols + 2)(
-        (row, col) => enhancedPixel(input, row - 1, col - 1, default)
-      )
-      val outputImage = output.map(_.toList).toList
-      val nextDefault = enhancedPixel(inputImage, -10000, -10000, default)
-      (outputImage, nextDefault)
-    }._1
+  implicit class Image(image: List[List[Int]]) {
+    def enhance(times: Int): List[List[Int]] = {
+      (1 to times).foldLeft(image, 0) { case ((input, default), _) =>
+        val output = Array.tabulate(input.rows + 2, input.cols + 2)(
+          (row, col) => enhancedPixel(input, row - 1, col - 1, default)
+        )
+        val outputImage = output.map(_.toList).toList
+        val nextDefault = enhancedPixel(image, -10000, -10000, default)
+        (outputImage, nextDefault)
+      }._1
+    }
+
+    def litPixels: Int = image.map(_.sum).sum
   }
 
-  def litPixels(image: List[List[Int]]): Int = image.map(_.sum).sum
-
-  println(s"part 1: ${litPixels(enhance(inputImage, times = 2))}")
-  println(s"part 2: ${litPixels(enhance(inputImage, times = 50))}")
+  println(s"part 1: ${inputImage.enhance(times = 2).litPixels}")
+  println(s"part 2: ${inputImage.enhance(times = 50).litPixels}")
 
 }
