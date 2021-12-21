@@ -50,7 +50,7 @@ object Day21 extends App {
   val diceCounts: List[(Int, Int)] =
     (for (a <- 1 to 3; b <- 1 to 3; c <- 1 to 3) yield a + b + c)
       .groupBy(identity)
-      .map { case (roll, list) => (roll, list.size) }
+      .map { case (dice, list) => (dice, list.size) }
       .toList
 
   def splitUniverse(universe: Universe, copies: Long): List[(Universe, Long)] = {
