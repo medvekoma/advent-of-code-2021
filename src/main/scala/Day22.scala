@@ -12,7 +12,7 @@ object Day22 extends App {
   case class Range(min: Int, max: Int) {
     def nonEmpty: Boolean = min <= max
 
-    def subtract(that: Range): Seq[Range] =
+    def -(that: Range): Seq[Range] =
       if (that.nonEmpty && this.nonEmpty)
         Seq(Range(this.min, that.min - 1), Range(that.max + 1, this.max))
       else {
@@ -33,11 +33,10 @@ object Day22 extends App {
       xRange.nonEmpty && yRange.nonEmpty && zRange.nonEmpty
 
     def subtract(that: Cube): Seq[Cube] =
-      (
-        (this.xRange subtract that.xRange).map(xRange => Cube(xRange, this.yRange, this.zRange)) ++
-          (this.yRange subtract that.yRange).map(yRange => Cube(this.xRange & that.xRange, yRange, this.zRange)) ++
-          (this.zRange subtract that.zRange).map(zRange => Cube(this.xRange & that.xRange, this.yRange & that.yRange, zRange))
-        ).filter(x => x.nonEmpty)
+      ((this.xRange - that.xRange).map(xRange => Cube(xRange, this.yRange, this.zRange)) ++
+        (this.yRange - that.yRange).map(yRange => Cube(this.xRange & that.xRange, yRange, this.zRange)) ++
+        (this.zRange - that.zRange).map(zRange => Cube(this.xRange & that.xRange, this.yRange & that.yRange, zRange)))
+        .filter(x => x.nonEmpty)
 
     def &(that: Cube): Cube =
       Cube(this.xRange & that.xRange, this.yRange & that.yRange, this.zRange & that.zRange)
@@ -69,6 +68,7 @@ object Day22 extends App {
   val validCube = Cube(validRange, validRange, validRange)
   val cubes1: Seq[Cube] = reboot(Some(validCube))
   val cubes2: Seq[Cube] = reboot()
+
   println(s"part 1: ${cubes1.map(_.size).sum}")
   println(s"part 2: ${cubes2.map(_.size).sum}")
 }
