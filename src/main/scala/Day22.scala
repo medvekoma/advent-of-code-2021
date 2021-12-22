@@ -22,14 +22,10 @@ object Day22 extends App {
     def &(that: Range): Range =
       Range(Math.max(this.min, that.min), Math.min(this.max, that.max))
 
-    def intersects(that: Range): Boolean = (this & that).nonEmpty
-
     def includes(that: Range): Boolean =
       that.min >= this.min && that.max <= this.max
 
     def size: Int = Math.max(max - min + 1, 0)
-
-    def toSeq: Seq[Int] = min to max
   }
 
   case class Cube(xRange: Range, yRange: Range, zRange: Range) {
