@@ -1,34 +1,40 @@
 import utils.ResourceFile
-import utils.RangeExtensions._
 
 object Day22 extends App {
 
   val lines = ResourceFile.readLines("day22.txt")
   val pattern = "(\\w+) x=(-?\\d+)..(-?\\d+),y=(-?\\d+)..(-?\\d+),z=(-?\\d+)..(-?\\d+)".r
 
-  case class Operation(mode: Boolean, x: Seq[Int], y: Seq[Int], z: Seq[Int])
-
   val operations = lines.collect { case pattern(mode, x1, x2, y1, y2, z1, z2) =>
-    Operation(mode == "on", x1.toInt to x2.toInt, y1.toInt to y2.toInt, z1.toInt to z2.toInt)
+    (mode == "on", Cube(Range(x1.toInt, x2.toInt), Range(y1.toInt, y2.toInt), Range(z1.toInt, z2.toInt)))
   }
 
-  val validRange = -50 to 50
-  var cubesOn = Set[(Int, Int, Int)]()
-  operations.foreach { operation =>
-    val xRange = operation.x intersect validRange
-    val yRange = operation.y intersect validRange
-    val zRange = operation.z intersect validRange
-    val cubes = for (x <- xRange; y <- yRange; z <- zRange) yield (x, y, z)
-    if (operation.mode)
-      cubesOn ++= cubes.toSet
-    else
-      cubesOn --= cubes.toSet
+  case class Range(min: Int, max: Int) {
+    def nonEmpty: Boolean = min <= max
+
+    def subtract(that: Range): Seq[Range] =
+      if (that.nonEmpty && this.nonEmpty)
+        Seq(Range(this.min, that.min - 1), Range(that.max + 1, this.max))
+      else {
+        Seq(this)
+      }.filter(_.nonEmpty)
+
+    def &(that: Range): Range =
+      Range(Math.max(this.min, that.min), Math.min(this.max, that.max))
+
+    def intersects(that: Range): Boolean = (this & that).nonEmpty
+
+    def includes(that: Range): Boolean =
+      that.min >= this.min && that.max <= this.max
+
+    def size: Int = Math.max(max - min + 1, 0)
+
+    def toSeq: Seq[Int] = min to max
   }
 
-  println(s"part 1: ${cubesOn.size}")
-
-  case class Cube(xRange: Seq[Int], yRange: Seq[Int], zRange: Seq[Int]) {
-    def nonEmpty: Boolean = xRange.nonEmpty && yRange.nonEmpty && zRange.nonEmpty
+  case class Cube(xRange: Range, yRange: Range, zRange: Range) {
+    def nonEmpty: Boolean =
+      xRange.nonEmpty && yRange.nonEmpty && zRange.nonEmpty
 
     def subtract(that: Cube): Seq[Cube] =
       (
@@ -37,35 +43,36 @@ object Day22 extends App {
           (this.zRange subtract that.zRange).map(zRange => Cube(this.xRange & that.xRange, this.yRange & that.yRange, zRange))
         ).filter(x => x.nonEmpty)
 
+    def &(that: Cube): Cube =
+      Cube(this.xRange & that.xRange, this.yRange & that.yRange, this.zRange & that.zRange)
+
     def intersects(that: Cube): Boolean =
-      (this.xRange intersects that.xRange) &&
-        (this.yRange intersects that.yRange) &&
-        (this.zRange intersects that.zRange)
+      (this & that).nonEmpty
 
     def size: Long =
       xRange.size.toLong * yRange.size * zRange.size
 
-    def containsAll(that: Cube): Boolean =
-      this.xRange.containsAll(that.xRange) && this.yRange.containsAll(that.yRange) && this.zRange.containsAll(that.zRange)
+    def includes(that: Cube): Boolean =
+      this.xRange.includes(that.xRange) && this.yRange.includes(that.yRange) && this.zRange.includes(that.zRange)
   }
 
+  def reboot(validCube: Option[Cube] = None): Seq[Cube] =
+    operations
+      .foldLeft(Seq[Cube]()) { case (cubes, (mode, nextCube)) =>
+        val newCube = validCube.map(_ & nextCube).getOrElse(nextCube)
+        val notIncluded = cubes.filterNot(cube => newCube includes cube)
+        val (intersected, distinct) = notIncluded.partition(cube => cube intersects newCube)
+        val withoutNewCube = distinct ++ intersected.flatMap(cube => cube subtract newCube)
+        if (mode)
+          withoutNewCube :+ newCube
+        else
+          withoutNewCube
+      }
 
-  var i = 0
-  val result = operations
-    .map { case Operation(mode, xRange, yRange, zRange) => (mode, Cube(xRange, yRange, zRange)) }
-    .foldLeft(Seq[Cube]()) { case (cubes, (mode, newCube)) =>
-      val percentage = i * 100 / operations.size
-      i += 1
-      if (i % 10 == 0)
-        println(s"... $percentage%: cubes: ${cubes.size}")
-      val (fullyInside, otherCubes) = cubes.partition(cube => newCube containsAll cube)
-      val (intersected, disjunct) = otherCubes.partition(cube => cube intersects newCube)
-      val withoutNewCube = disjunct ++ intersected.flatMap(cube => cube subtract newCube)
-      if (mode)
-        withoutNewCube :+ newCube
-      else
-        withoutNewCube
-    }
-
-  println(s"part 2: ${result.map(_.size).sum}")
+  val validRange = Range(-50, 50)
+  val validCube = Cube(validRange, validRange, validRange)
+  val cubes1: Seq[Cube] = reboot(Some(validCube))
+  val cubes2: Seq[Cube] = reboot()
+  println(s"part 1: ${cubes1.map(_.size).sum}")
+  println(s"part 2: ${cubes2.map(_.size).sum}")
 }
