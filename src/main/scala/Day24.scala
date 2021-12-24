@@ -14,69 +14,93 @@ object Day24 extends App {
 
   sealed trait Expression
 
-  case class Number(n: Int) extends Expression
+  case class Number(n: Int) extends Expression {
+    override def toString: String = n.toString
+  }
 
-  case class Inp(reg: Char, index: Int) extends Expression
+  case class Inp(index: Int) extends Expression {
+    override def toString: String = s"input($index).asDigit"
+  }
 
-  sealed trait Operation extends Expression {
-    val reg: Char
+  sealed trait Binary extends Expression {
     val a: Expression
     val b: Expression
   }
 
-  case class Add(reg: Char, a: Expression, b: Expression) extends Operation
-  case class Mul(reg: Char, a: Expression, b: Expression) extends Operation
-  case class Div(reg: Char, a: Expression, b: Expression) extends Operation
-  case class Mod(reg: Char, a: Expression, b: Expression) extends Operation
-  case class Eql(reg: Char, a: Expression, b: Expression) extends Operation
+  case class Add(a: Expression, b: Expression) extends Binary {
+    override def toString: String = s"($a + $b)"
+  }
+  case class Mul(a: Expression, b: Expression) extends Binary {
+    override def toString: String = s"($a * $b)"
+  }
+  case class Div(a: Expression, b: Expression) extends Binary {
+    override def toString: String = s"($a / $b)"
+  }
+  case class Mod(a: Expression, b: Expression) extends Binary {
+    override def toString: String = s"($a % $b)"
+  }
+  case class Eql(a: Expression, b: Expression) extends Binary {
+    override def toString: String = s"(if ($a == $b) 1 else 0)"
+  }
 
   object Expression {
-    def from(op: String, reg: Char, a: Expression, b: Expression): Expression = {
+    def from(op: String, a: Expression, b: Expression): Expression = {
       (op, b) match {
-        case ("mul", Number(0)) => Number(0)
-        case ("add", _) => Add(reg, a, b)
-        case ("mul", _) => Mul(reg, a, b)
-        case ("div", _) => Div(reg, a, b)
-        case ("mod", _) => Mod(reg, a, b)
-        case ("eql", _) => Eql(reg, a, b)
+//        case ("mul", Number(0)) => Number(0)
+//        case ("mul", Number(1)) => a
+//        case ("div", Number(1)) => a
+//        case ("add", Number(0)) => a
+        case ("add", _) => Add(a, b)
+        case ("mul", _) => Mul(a, b)
+        case ("div", _) => Div(a, b)
+        case ("mod", _) => Mod(a, b)
+        case ("eql", _) => Eql(a, b)
       }
     }
   }
 
-  case class Line(op: String, reg: Char, reg2: Option[Char], value: Option[Int])
+  case class Operation(op: String, reg: Char, reg2: Option[Char], value: Option[Int])
 
   val expressionPattern = "(\\w+) ([wxyz]) ([wxyz]?)(-?\\d*)".r
-  val reverseLines = expandedLines.collect {
-    case expressionPattern(op, reg, reg2, value) => Line(op, reg.head, reg2.headOption, value.toIntOption)
+  val operations = expandedLines.collect {
+    case expressionPattern(op, reg, reg2, value) => Operation(op, reg.head, reg2.headOption, value.toIntOption)
   }
 
-  def findExpression(from: Int, reg: Char): Expression = {
-    val remainingLines = reverseLines.zipWithIndex.take(from)
-    val result = remainingLines.findLast { case (line, _) => line.reg == reg } match {
-      case None => Number(0)
-      case Some((line, index)) =>
-        line match {
-          case Line("inp", _, None, Some(number)) =>
-            Inp(reg, number)
-          case Line(op, regA, None, Some(number)) =>
-            val a = findExpression(index - 1, regA)
+  def findExpression(lineCount: Int, reg: Char): Expression = {
+    val lastOperation = operations.zipWithIndex
+      .take(lineCount)
+      .findLast { case (operation, _) => operation.reg == reg }
+    println(s"{{{ $lastOperation")
+    val result = lastOperation match {
+      case Some((operation, index)) =>
+        operation match {
+          case Operation("inp", _, None, Some(number)) =>
+            Inp(number)
+          case Operation(op, regA, None, Some(number)) =>
+            println(s"... find: $index, $regA")
+            val a = findExpression(index, regA)
             val b = Number(number)
-            Expression.from(op, reg, a, b)
-          case Line(op, regA, Some(regB), None) =>
-            val a = findExpression(index - 1, regA)
-            val b = findExpression(index - 1, regB)
-            Expression.from(op, reg, a, b)
+            Expression.from(op, a, b)
+          case Operation(op, regA, Some(regB), None) =>
+            println(s"... find: $index, $regA")
+            val a = findExpression(index, regA)
+            println(s"... find: $index, $regB")
+            val b = findExpression(index, regB)
+            Expression.from(op, a, b)
         }
+      case None =>
+        Number(0)
     }
+    println(s"}}} $lastOperation, ${result.getClass.getSimpleName}")
     result
   }
 
-  val tree = findExpression(reverseLines.length, 'z')
+  val tree = findExpression(operations.length, 'z')
 
   def findInp(expression: Expression): Seq[Inp] = {
     expression match {
       case inp: Inp => Seq(inp)
-      case op: Operation => findInp(op.a) ++ findInp(op.b)
+      case op: Binary => findInp(op.a) ++ findInp(op.b)
       case _ => Seq.empty
     }
   }
