@@ -24,10 +24,13 @@ object Day24b extends App {
     'y' -> List((0, List.empty)),
     'z' -> List((0, List.empty))
   )
-  val badDigits = mutable.HashMap[Int, Set[Int]]()
+  var badDigits: Map[Int, Set[Int]] = Map.empty
 
-  operations.foreach { op =>
-    op match {
+  var i = 0
+  operations.foreach { operation =>
+    println(s">>> $i, $operation")
+    i += 1
+    operation match {
       case Operation("inp", reg, _, Some(index)) =>
         registerValues(reg) = getInputValue(index)
       case Operation("add", reg, None, Some(n2)) =>
@@ -45,72 +48,52 @@ object Day24b extends App {
       case Operation("eql", reg1, Some(reg2), None) =>
         registerValues(reg1) = getValue2(reg1, reg2, (a, b) => if (a == b) 1 else 0)
       case Operation("div", reg, None, Some(n2)) =>
-        val newValues = registerValues(reg).toList
-          .map { case (value, constraints) => (value / n2, constraints) }
-        registerValues(reg) = unifyValues(newValues)
+        registerValues(reg) = getValue1(reg, n2, _ / _)
       case Operation("div", reg1, Some(reg2), None) =>
-        val vc1 = registerValues(reg1)
-        val vc2 = registerValues(reg2)
-        val newValues = for (
-          (v1, c1) <- vc1.toList;
-          (v2, c2) <- vc2.toList;
-          result = (v1 / v2, mergeConstraints(c1, c2)) if v2 != 0
-        ) yield result
-        registerValues(reg1) = unifyValues(newValues)
-        for (
-          (value, constraints) <- vc2 if value == 0;
-          (index, set) <- constraints
-        ) {
-          badDigits(index) ++= set
-        }
+        registerValues(reg1) = getValue2(reg1, reg2, _ / _, _ => true, _ != 0)
       case Operation("mod", reg, None, Some(n2)) =>
-        val newValues = registerValues(reg).toList
-          .map { case (value, constraints) => (value % n2, constraints) }
-        registerValues(reg) = unifyValues(newValues)
+        registerValues(reg) = getValue1(reg, n2, _ % _)
       case Operation("mod", reg1, Some(reg2), None) =>
-        val vc1 = registerValues(reg1)
-        val vc2 = registerValues(reg2)
-        val newValues = for (
-          (v1, c1) <- vc1.toList if v1 >= 0;
-          (v2, c2) <- vc2.toList if v2 > 0;
-          result = (v1 % v2, mergeConstraints(c1, c2))
-        ) yield result
-        registerValues(reg1) = unifyValues(newValues)
-        for (
-          (v1, c1) <- vc1.toList if v1 < 0;
-          (v2, c2) <- vc2.toList if v2 <= 0;
-          (idx1, set1) <- c1;
-          (idx2, set2) <- c2
-        ) {
-          badDigits(idx1) ++= set1
-          badDigits(idx2) ++= set2
-        }
+        registerValues(reg1) = getValue2(reg1, reg2, _ % _, _ >= 0, _ > 0)
       case operation =>
         println(s"ERROR: $operation")
     }
 
-    println("---")
-    println(op)
-    registerValues.foreach(println)
-    badDigits.foreach(println)
+//    registerValues.foreach(println)
+//    badDigits.foreach(println)
+//    println("---")
   }
 
   def getInputValue(index: Int): ValueConstraints =
     (1 to 9).map(digit => (digit, List((index, Set(digit))))).toList
 
-  def getValue1(reg: Char, n2: Int, fn: (Int, Int) => Int): ValueConstraints = {
+  def getValue1( reg: Char, n2: Int,
+                 fn: (Int, Int) => Int
+               ): ValueConstraints = {
     val newValues = registerValues(reg)
       .map { case (value, constraints) => (fn(value, n2), constraints) }
     unifyValues(newValues)
   }
 
-  def getValue2(reg1: Char, reg2: Char, fn: (Int, Int) => Int): ValueConstraints = {
+  def getValue2(reg1: Char, reg2: Char,
+                fn: (Int, Int) => Int,
+                valid1: Int => Boolean = _ => true,
+                valid2: Int => Boolean = _ => true
+               ): ValueConstraints = {
     val vc1 = registerValues(reg1)
     val vc2 = registerValues(reg2)
+    val (goodVc1, badVc1) = vc1.partition { x => valid1(x._1)}
+    val (goodVc2, badVc2) = vc2.partition ( x => valid2(x._1))
+    val badConstraints = unifyConstraints((badVc1 ++ badVc2).map(_._2))
+    badConstraints.foreach {
+      case (index, set) =>
+        badDigits += (index -> (badDigits.getOrElse(index, Set.empty) ++ set))
+    }
+
     val newValues = for (
-      (v1, c1) <- vc1;
-      (v2, c2) <- vc2;
-      result = (v1 * v2, mergeConstraints(c1, c2))
+      (v1, c1) <- goodVc1;
+      (v2, c2) <- goodVc2;
+      result = (fn(v1, v2), mergeConstraints(c1, c2))
     ) yield result
     unifyValues(newValues)
   }
@@ -121,12 +104,16 @@ object Day24b extends App {
       .map { case (index, list) => (index, list.reduce(_ & _)) }
       .toList
 
+  def unifyConstraints(constraints: List[IndexConstraints]): IndexConstraints =
+    constraints.flatten
+      .groupMap(_._1)(_._2)
+      .map { case (index, list) => (index, list.reduce(_ ++ _)) }
+      .filterNot { case (index, set) => set == (1 to 9).toSet }
+      .toList
+
   def unifyValues(vc: ValueConstraints): ValueConstraints = {
-    val groupMap = vc.groupMap(_._1)(_._2)
-    val result = groupMap
-      .map { case (value, constraits) => (value, constraits.flatten
-        .groupMap(_._1)(_._2).map { case (index, list) => (index, list.reduce(_ ++ _)) }.toSeq)
-      }
-    result.toSeq
+    vc.groupMap(_._1)(_._2)
+      .map { case (value, constraints) => (value, unifyConstraints(constraints)) }
+      .toList
   }
 }
