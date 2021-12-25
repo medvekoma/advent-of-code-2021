@@ -4,117 +4,64 @@ import scala.collection.mutable
 
 object Day24 extends App {
 
-  val lines = ResourceFile.readLines("day24.txt")
-
-  val (expandedLines, _) = lines.foldLeft((List.empty[String], 0)) { case ((list, index), line) =>
-    val (nextLine, nextIndex) = if (line.startsWith("inp"))
-      (line + s" $index", index + 1)
-    else
-      (line, index)
-    (list :+ nextLine, nextIndex)
-  }
-
-  sealed trait Expression
-
-  case class Number(n: Int) extends Expression {
-    override def toString: String = n.toString
-  }
-
-  case class Inp(index: Int) extends Expression {
-    override def toString: String = s"input($index).asDigit"
-  }
-
-  sealed trait Binary extends Expression {
-    val a: Expression
-    val b: Expression
-  }
-
-  case class Add(a: Expression, b: Expression) extends Binary {
-    override def toString: String = s"($a + $b)"
-  }
-
-  case class Mul(a: Expression, b: Expression) extends Binary {
-    override def toString: String = s"($a * $b)"
-  }
-
-  case class Div(a: Expression, b: Expression) extends Binary {
-    override def toString: String = s"($a / $b)"
-  }
-
-  case class Mod(a: Expression, b: Expression) extends Binary {
-    override def toString: String = s"($a % $b)"
-  }
-
-  case class Eql(a: Expression, b: Expression) extends Binary {
-    override def toString: String = s"(if ($a == $b) 1 else 0)"
-  }
-
-  object Expression {
-    def from(op: String, a: Expression, b: Expression): Expression = {
-      (op, a, b) match {
-        case ("add", Number(n1), Number(n2)) => Number(n1 + n2)
-        case ("mul", Number(n1), Number(n2)) => Number(n1 * n2)
-        case ("div", Number(n1), Number(n2)) => Number(n1 / n2)
-        case ("mod", Number(n1), Number(n2)) => Number(n1 % n2)
-        case ("eql", Number(n1), Number(n2)) => Number(if (n1 == n2) 1 else 0)
-        case ("mul", _, Number(0)) => Number(0)
-        case ("mul", _, Number(1)) => a
-        case ("div", _, Number(1)) => a
-        case ("add", _, Number(0)) => a
-        case ("mul", Number(0), _) => Number(0)
-        case ("mul", Number(1), _) => b
-        case ("add", Number(0), _) => b
-        case ("add", _, _) => Add(a, b)
-        case ("mul", _, _) => Mul(a, b)
-        case ("div", _, _) => Div(a, b)
-        case ("mod", _, _) => Mod(a, b)
-        case ("eql", _, _) => Eql(a, b)
-      }
-    }
-  }
+  val iterator = (0 to 13).iterator
+  val inpPattern = "inp ([wxyz])".r
+  val expressionPattern = "(\\w+) ([wxyz]) ([wxyz]?)(-?\\d*)".r
 
   case class Operation(op: String, reg: Char, reg2: Option[Char], value: Option[Int])
 
-  val expressionPattern = "(\\w+) ([wxyz]) ([wxyz]?)(-?\\d*)".r
-  val operations = expandedLines.collect {
-    case expressionPattern(op, reg, reg2, value) => Operation(op, reg.head, reg2.headOption, value.toIntOption)
+  val operations = ResourceFile.readLines("day24.txt")
+    .collect {
+      case inpPattern(reg) => Operation("inp", reg.head, None, Some(iterator.next()))
+      case expressionPattern(op, reg, reg2, value) => Operation(op, reg.head, reg2.headOption, value.toIntOption)
+    }
+
+  class QuantumNumber(val value: Map[Option[Int], List[Set[Int]]]) {
+    override def toString: String =
+      s"QuantumNumber(${value.mkString("\n  ", "\n  ", "\n")})"
+
+    def add(that: QuantumNumber): QuantumNumber =
+      operation(that, _ + _)
+
+    def div(that: QuantumNumber): QuantumNumber =
+      operation(that, _ / _)
+
+    private def operation(that: QuantumNumber, fn: (Int, Int) => Int): QuantumNumber = {
+      val values = for (
+        (v1, c1) <- this.value.toList;
+        (v2, c2) <- that.value.toList
+      ) yield (v1, v2, c1, c2)
+      val value = values.map {
+        case (Some(v1), Some(v2), c1, c2) =>
+          (Some(fn(v1, v2)), c1.zip(c2).map { case (a, b) => a & b })
+        case (_, _, c1, c2) =>
+          (None, c1.zip(c2).map { case (a, b) => a ++ b })
+      }.groupMap(_._1)(_._2)
+        .map{ case (value, list) => (value, list.transpose.map(c => c.reduce(_ ++ _)))}
+      new QuantumNumber(value)
+    }
   }
 
-  val registers: mutable.Map[Char, Expression] = mutable.HashMap()
+  object QuantumNumber {
+    private val digits: Set[Int] = (1 to 9).toSet
+    private val always: List[Set[Int]] = List.fill(14)(digits)
 
-  operations.foreach {
-    case Operation("inp", reg, None, Some(number)) =>
-      registers(reg) = Inp(number)
-    case Operation(op, reg, None, Some(number)) =>
-      val a = registers.getOrElse(reg, Number(0))
-      registers(reg) = Expression.from(op, a, Number(number))
-    case Operation(op, reg1, Some(reg2), None) =>
-      val a = registers.getOrElse(reg1, Number(0))
-      val b = registers.getOrElse(reg2, Number(0))
-      registers(reg1) = Expression.from(op, a, b)
+    def fromValue(value: Int): QuantumNumber =
+      new QuantumNumber(Map(Some(value) -> always))
+
+    def fromInput(index: Int): QuantumNumber = {
+      val value = (1 to 9)
+        .map(i => Option(i) -> always.patch(index, List(Set(i)), 1))
+        .toMap
+      new QuantumNumber(value)
+    }
   }
 
-  val tree = registers('z')
+  val q1 = QuantumNumber.fromInput(0)
+  val q2 = QuantumNumber.fromValue(2)
+  val q = q1 div q2
 
-  val registerValues = mutable.HashMap(
-    'w' -> mutable.HashMap(0L -> List.empty),
-    'x' -> mutable.HashMap(0L -> List.empty),
-    'y' -> mutable.HashMap(0L -> List.empty),
-    'z' -> mutable.HashMap(0L -> List.empty)
-  )
-  val wrongValues = mutable.ListBuffer[(Int, Int)]()
-
-//  def parseConditions(expression: Expression)
-
-//  def findInp(expression: Expression): Seq[Inp] = {
-//    expression match {
-//      case inp: Inp => Seq(inp)
-//      case op: Binary => findInp(op.a) ++ findInp(op.b)
-//      case _ => Seq.empty
-//    }
-//  }
-//
-//  println(tree)
-//  println(findInp(tree).distinct)
-
+  println(q1)
+  println(q2)
+  println(q)
 }
