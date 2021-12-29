@@ -1,4 +1,4 @@
-inp w       w: $0
+inp w       w: $0           Input(0)
 mul x 0     x: 0
 add x z     x: $0
 mod x 26    x: $0
