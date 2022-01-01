@@ -1,10 +1,10 @@
 import utils.ResourceFile
 
-import scala.collection.mutable
+import scala.collection.{Set, mutable}
 
 object Day24c extends App {
 
-  val iterator = (0 to 13).iterator
+  val iterator = (13 to 0 by -1).iterator
   val inpPattern = "inp ([wxyz])".r
   val expressionPattern = "(\\w+) ([wxyz]) ([wxyz]?)(-?\\d*)".r
 
@@ -25,8 +25,8 @@ object Day24c extends App {
                   valid2: Long => Boolean = _ => true
                  ): Map[Long, Set[(Long, Long)]] = {
       val internalValues = for (
-        (v1, _) <- left.values;
-        (v2, _) <- right.values;
+        (v1, _) <- left.values.toSeq;
+        (v2, _) <- right.values.toSeq;
         v = (fn(v1, v2), (v1, v2)) if valid1(v1) && valid2(v2)
       ) yield v
 
@@ -107,23 +107,97 @@ object Day24c extends App {
           registers(reg1) = Node.binary(op, registers(reg1), registers(reg2))
       }
     }
-    val result = collectInputs(registers('z'), 0L)
-      .groupMap(_._1)(_._2)
-      .map { case (index, set) => (index, set.toList.sorted )}
-      .toList.sortBy(_._1)
-    result.foreach(println)
+    println("Processed.")
+    val res = collectMax(registers('z'), 0L)
+    println(asString(res))
+//    val inputs = collectInputs(registers('z'), 0L)
+//    println(s"Inputs size: ${inputs.size}")
+//    val maxString = inputs
+//      .map(asString)
+//      .max
+//    println(s"Max: $maxString")
   }
 
-  def collectInputs(node: Node, value: Long): Set[(Int, Int)] = {
-    node match {
-      case Input(index) => Set((index, value.toInt))
-      case Number(_) => Set.empty
-      case binary: Binary =>
-        node.values(value)
-          .map { case (left, right) => collectInputs(binary.left, left) ++ collectInputs(binary.right, right) }
-          .reduce(_ ++ _)
-    }
+  object InputOrdering extends Ordering[Map[Int, Int]] {
+    override def compare(x: Map[Int, Int], y: Map[Int, Int]): Int =
+      asString(x) compare asString(y)
   }
+
+  def asString(inputMap: Map[Int, Int]): String =
+    (13 to 0 by -1)
+      .map(inputMap.get(_).map(_.toString.head).getOrElse('*'))
+      .mkString
+
+  def joinMax(map1: Map[Int, Int], map2: Map[Int, Int]): Map[Int, Int] = {
+    val value = (map1.toList ++ map2).groupMap(_._1)(_._2)
+    if (value.exists(_._2.toSet.size > 1))
+      println("ERROR:" + value)
+    value.map{ case (key, list) => (key, list.head)}
+
+  }
+
+  def joinInputs(list1: List[Map[Int, Int]], list2: List[Map[Int, Int]]): List[Map[Int, Int]] = {
+    for (
+      map1 <- list1;
+      map2 <- list2;
+//      input = println(s"Input: ${asString(map1)} + ${asString(map2)}");
+      value = (map1.toList ++ map2).groupMap(_._1)(_._2) if !value.exists(_._2.toSet.size > 1);
+      res = value.map{ case (key, list) => (key, list.head)}
+//      output = println(s"  res: ${asString(res)}")
+    ) yield res
+  }
+
+  def collectInputs(node: Node, value: Long): List[Map[Int, Int]] =
+    node match {
+      case Number(value) => List(Map.empty)
+      case Input(index) => List(Map(index -> value.toInt))
+      case binary: Binary =>
+        node.values(value).toList
+          .flatMap { case (leftVal, rightVal) => joinInputs(collectInputs(binary.left, leftVal), collectInputs(binary.right, rightVal)) }
+    }
+
+  def collectMax(node: Node, value: Long): Map[Int, Int] =
+    node match {
+      case Number(value) => Map.empty
+      case Input(index) => Map(index -> value.toInt)
+      case binary: Binary =>
+        node.values(value).toList
+          .map { case (leftVal, rightVal) => joinMax(collectMax(binary.left, leftVal), collectMax(binary.right, rightVal)) }
+          .maxBy(asString)
+    }
+
+  def validate(code: String) {
+    val registers = mutable.HashMap(
+      'z' -> 0L,
+      'x' -> 0L,
+      'y' -> 0L,
+      'z' -> 0L,
+    )
+    var i = 0
+    operations.foreach { operation =>
+      println(s"$i. $operation")
+      i += 1
+      operation match {
+        case Operation("inp", reg, None, Some(index)) =>
+          registers(reg) = code(index).asDigit.toLong
+        case Operation("mul", reg, None, Some(0)) =>
+          registers(reg) = 0L
+        case Operation("mul", reg, None, Some(1)) =>
+        case Operation("div", reg, None, Some(1)) =>
+          ;
+        case Operation(op, reg, None, Some(value)) =>
+          registers(reg) = Node.binary(op, Number(registers(reg)), Number(value)).values.head._1
+        case Operation(op, reg1, Some(reg2), None) =>
+          registers(reg1) = Node.binary(op, Number(registers(reg1)), Number(registers(reg2))).values.head._1
+      }
+    }
+    println(registers('z'))
+  }
+
 
   process()
+//  println(joinInputs(List(Map(0 -> 2, 1-> 3)), List(Map(1 -> 2))))
+//  validate("11118411111314")
+  // 11118411111314
+  //  println(asString(Map(1 -> 9, 13 -> 7)))
 }
