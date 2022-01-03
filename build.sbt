@@ -4,4 +4,4 @@ version := "0.1"
 
 scalaVersion := "2.13.7"
 
-libraryDependencies += "org.scalanlp" %% "breeze-natives" % "2.0"
+libraryDependencies += "org.scala-lang.modules" %% "scala-parallel-collections" % "1.0.4"
