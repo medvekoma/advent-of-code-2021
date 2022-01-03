@@ -1,10 +1,12 @@
 import utils.ResourceFile
 
+import scala.annotation.tailrec
+
 object Day25 extends App {
 
   val originalLines = ResourceFile.readLines("day25.txt")
 
-  def stepLogic(cucumber: Char)(lines: List[String]): List[String] = {
+  def step(cucumber: Char)(lines: List[String]): List[String] = {
     lines.map { line =>
       val text = (line.last + line + line.head).replace(s"$cucumber.", s".$cucumber")
       text.tail.take(line.length)
@@ -13,29 +15,20 @@ object Day25 extends App {
 
   def transpose(lines: List[String]): List[String] = lines.transpose.map(_.mkString)
 
-  def stepEast = stepLogic('>') _
+  def stepEast = step('>') _
 
-  def stepSouth = transpose _ andThen stepLogic('v') andThen transpose
+  def stepSouth = transpose _ andThen step('v') andThen transpose
 
-  def step(lines: List[String]): Option[List[String]] = {
-    val newLines = (stepEast andThen stepSouth) (lines)
-    if (lines == newLines)
-      None
+  def fullStep = stepEast andThen stepSouth
+
+  @tailrec
+  def evolve(lines: List[String], steps: Int = 0): Int = {
+    val evolvedLines = fullStep(lines)
+    if (evolvedLines == lines)
+      steps + 1
     else
-      Some(newLines)
+      evolve(evolvedLines, steps + 1)
   }
 
-  var prevLines = originalLines
-  var steps = 0
-  var ready = false
-  do {
-    steps += 1
-    step(prevLines) match {
-      case None =>
-        ready = true
-      case Some(nextLines) =>
-        prevLines = nextLines
-    }
-  } while (!ready)
-  println(s"part 1: $steps")
+  println(s"part 1: ${evolve(originalLines)}")
 }
