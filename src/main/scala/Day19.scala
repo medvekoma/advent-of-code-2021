@@ -101,17 +101,19 @@ object Day19 extends App {
   lazy val transformationMap = buildTransformationMap()
 
   def beacons(): Set[Point] =
-    transformationMap.map { case (blockId, transformations) =>
-      (blockId, transformations.foldRight(blocks(blockId))((transformation, block) => block.map(transformation)))
-    }
-      .values.flatten.toSet
+    transformationMap.flatMap { case (blockId, transformations) =>
+      transformations.foldRight(blocks(blockId)) { (transformation, block) =>
+        block.map(transformation)
+      }
+    }.toSet
+
 
   println(s"part 1: ${beacons().size}")
 
   def scanners(): Seq[Point] =
     transformationMap.map { case (_, transformations) =>
-      transformations.foldRight((0, 0, 0)) {
-        (transformation, scanner) => transformation(scanner)
+      transformations.foldRight((0, 0, 0)) { (transformation, scanner) =>
+        transformation(scanner)
       }
     }.toSeq
 
