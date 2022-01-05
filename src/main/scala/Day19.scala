@@ -62,25 +62,22 @@ object Day19 extends App {
         (+1, 0, 0), (0, +1, 0), (0, 0, +1),
         (-1, 0, 0), (0, -1, 0), (0, 0, -1)
       )
-      val args = for (
+      val arguments = for (
         list1 <- dimensions1;
         (list2, index2) <- dimensions2.zipWithIndex;
         diff = Seq(list1, list2).transpose
           .map { case Seq(a, b) => a - b }
           .distinct if diff.length == 1
-      ) yield (index2, diff.head)
+      ) yield (multipliers(index2), diff.head)
 
       beacon => {
         val (x, y, z) = beacon
-        args match {
-          case Seq((mx, sx), (my, sy), (mz, sz)) =>
-            val (ax, bx, cx) = multipliers(mx)
-            val (ay, by, cy) = multipliers(my)
-            val (az, bz, cz) = multipliers(mz)
+        arguments match {
+          case Seq((mx, dx), (my, dy), (mz, dz)) =>
             (
-              ax * x + bx * y + cx * z + sx,
-              ay * x + by * y + cy * z + sy,
-              az * x + bz * y + cz * z + sz
+              mx._1 * x + mx._2 * y + mx._3 * z + dx,
+              my._1 * x + my._2 * y + my._3 * z + dy,
+              mz._1 * x + mz._2 * y + mz._3 * z + dz
             )
         }
       }
@@ -101,21 +98,22 @@ object Day19 extends App {
     transformationMap.toMap
   }
 
-  val transformationMap = buildTransformationMap()
+  lazy val transformationMap = buildTransformationMap()
 
-  val beacons = transformationMap
-    .map { case (blockId, transformations) =>
+  def beacons(): Set[Point] =
+    transformationMap.map { case (blockId, transformations) =>
       (blockId, transformations.foldRight(blocks(blockId))((transformation, block) => block.map(transformation)))
     }
-    .values.flatten.toSet
+      .values.flatten.toSet
 
-  println(s"part 1: ${beacons.size}")
+  println(s"part 1: ${beacons().size}")
 
-  val scanners = transformationMap.map {
-    case (_, transformations) =>
-      transformations.foldRight((0, 0, 0))((transformation, scanner) => transformation(scanner))
-  }
-  println(s"part 2: ${maxManhattan(scanners.toSeq)}")
+  def scanners(): Seq[Point] =
+    transformationMap.map { case (_, transformations) =>
+      transformations.foldRight((0, 0, 0)) {
+        (transformation, scanner) => transformation(scanner)
+      }
+    }.toSeq
 
   def manhattan(beacon1: Point, beacon2: Point): Int = {
     val (x1, y1, z1) = beacon1
@@ -128,4 +126,6 @@ object Day19 extends App {
       .map { case Seq(a, b) => manhattan(a, b) }
       .max
   }
+
+  println(s"part 2: ${maxManhattan(scanners())}")
 }
