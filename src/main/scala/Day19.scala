@@ -5,28 +5,23 @@ import scala.collection.mutable
 
 object Day19 extends App {
 
-  type Beacon = (Int, Int, Int)
-  type Transformation = Beacon => Beacon
-
-  def toBeacon(string: String): Beacon =
-    string.split(',') match {
-      case Array(x, y, z) => (x.toInt, y.toInt, z.toInt)
-    }
+  type Point = (Int, Int, Int)
+  type Transformation = Point => Point
 
   val lines = ResourceFile.readLines("day19.txt")
   val blocks = lines
     .splitBySeparator("")
-    .map(_.tail.map(toBeacon))
+    .map { block =>
+      block.tail.map { line =>
+        line.split(',') match {
+          case Array(x, y, z) => (x.toInt, y.toInt, z.toInt)
+        }
+      }
+    }
 
-  implicit class RichBeacon(beacon: Beacon) {
-    def +(other: Beacon): Beacon = (beacon._1 + other._1, beacon._2 + other._2, beacon._3 + other._3)
+  type PointDistances = Map[Set[Int], Seq[Point]]
 
-    def -(other: Beacon): Beacon = (beacon._1 - other._1, beacon._2 - other._2, beacon._3 - other._3)
-  }
-
-  type BlockDistance = Map[Set[Int], Seq[Beacon]]
-
-  def toDistance(block: Seq[Beacon]): BlockDistance = {
+  def toDistance(block: Seq[Point]): PointDistances = {
     val all = for (
       i <- block.indices;
       j <- i + 1 until block.size;
@@ -34,13 +29,13 @@ object Day19 extends App {
       b = block(j);
       diff = Set(Math.abs(a._1 - b._1), Math.abs(a._2 - b._2), Math.abs(a._3 - b._3))
     ) yield (diff, Seq(a, b))
-    all.toMap // .sorted.take(20 * block.size)
+    all.toMap
   }
 
-  val distances: Seq[BlockDistance] =
+  val distances: Seq[PointDistances] =
     blocks.map(b => toDistance(b))
 
-  def common(d1: BlockDistance, d2: BlockDistance): (Seq[Beacon], Seq[Beacon]) = {
+  def common(d1: PointDistances, d2: PointDistances): (Seq[Point], Seq[Point]) = {
     val commonKeys = (d1.keySet & d2.keySet).toSeq
     if (commonKeys.size > 65)
       (commonKeys.flatMap(d1(_)), commonKeys.flatMap(d2(_)))
@@ -48,26 +43,15 @@ object Day19 extends App {
       (Seq.empty, Seq.empty)
   }
 
-  def blockPairs(): Seq[(Int, Int, Seq[Beacon], Seq[Beacon])] =
+  def blockPairs(): Seq[(Int, Int, Seq[Point], Seq[Point])] =
     for (
       i <- distances.indices;
       j <- i + 1 until distances.size;
       (common1, common2) = common(distances(i), distances(j)) if common1.nonEmpty
     ) yield (i, j, common1, common2)
 
-  def collect(collected: Set[Int], blockPairs: Seq[(Int, Int, Seq[Beacon], Seq[Beacon])], next: Int): Set[Int] = {
-    val links = blockPairs.collect {
-      case (i, j, c1, c2) if i == next => j
-      case (i, j, c1, c2) if j == next => i
-    }.toSet -- collected
-    Set(next) ++ links
-      .map(link => collect(collected + next, blockPairs, link))
-      .foldLeft(Set.empty[Int])(_ ++ _)
-  }
-
   val pairs = blockPairs()
   val transformationMap = mutable.HashMap(0 -> Seq.empty[Transformation])
-  val verificationMap = mutable.HashMap(0 -> Seq.empty[(Int, Int)])
 
   def process(current: Int = 0): Unit = {
     val newBlocks = pairs.collect {
@@ -75,7 +59,6 @@ object Day19 extends App {
       case (i, j, c1, c2) if j == current => (i, transformation(c2, c1))
     }.toMap -- transformationMap.keySet
     newBlocks.foreach { case (id, transformation) =>
-      verificationMap(id) = verificationMap(current) :+ (current -> id)
       transformationMap(id) = transformationMap(current) :+ transformation
       process(id)
     }
@@ -87,34 +70,28 @@ object Day19 extends App {
       (blockId, transformations.foldRight(blocks(blockId))((transformation, block) => block.map(transformation)))
     }
 
-  val beacons: Set[(Int, Int, Int)] = newMap.values.flatten.toSet
+  val beacons: Set[Point] = newMap.values.flatten.toSet
   println(s"part 1: ${beacons.size}")
 
   val scanners = transformationMap.map {
     case (_, transformations) =>
-      transformations.foldRight((0,0,0))((transformation, scanner) => transformation(scanner))
+      transformations.foldRight((0, 0, 0))((transformation, scanner) => transformation(scanner))
   }
   println(s"part 2: ${maxManhattan(scanners.toSeq)}")
 
-  def manhattan(beacon1: Beacon, beacon2: Beacon): Int = {
+  def manhattan(beacon1: Point, beacon2: Point): Int = {
     val (x1, y1, z1) = beacon1
     val (x2, y2, z2) = beacon2
     Math.abs(x1 - x2) + Math.abs(y1 - y2) + Math.abs(z1 - z2)
   }
 
-  def maxManhattan(beacons: Seq[Beacon]): Int = {
+  def maxManhattan(beacons: Seq[Point]): Int = {
     beacons.combinations(2)
       .map { case Seq(a, b) => manhattan(a, b) }
       .max
   }
 
-  def boundingBox(beacons: Seq[Beacon]): Seq[Int] = {
-    beacons.transpose { case (a, b, c) => Seq(a, b, c) } match {
-      case Seq(xs, ys, zs) => Seq(xs.max - xs.min, ys.max - ys.min, zs.max - zs.min)
-    }
-  }
-
-  def transformation(block1: Seq[Beacon], block2: Seq[Beacon]): Transformation = {
+  def transformation(block1: Seq[Point], block2: Seq[Point]): Transformation = {
     val indices1 = block1.transpose { case (a, b, c) => Seq(a, b, c) }
       .map(list => list.sorted)
     val indices2a = block2.transpose { case (a, b, c) => Seq(a, b, c) }
