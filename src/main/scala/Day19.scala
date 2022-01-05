@@ -43,27 +43,72 @@ object Day19 extends App {
     ) yield (i, j, commonKeys.flatMap(dist1(_)).toSeq, commonKeys.flatMap(dist2(_)).toSeq)
   }
 
-  val pairs = blockPairs()
-  val transformationMap = mutable.HashMap(0 -> Seq.empty[Transformation])
+  def buildTransformationMap(): Map[Int, Seq[Transformation]] = {
+    val pairs = blockPairs()
+    val transformationMap = mutable.HashMap(0 -> Seq.empty[Transformation])
 
-  def process(current: Int = 0): Unit = {
-    val newBlocks = pairs.collect {
-      case (i, j, c1, c2) if i == current => (j, transformation(c1, c2))
-      case (i, j, c1, c2) if j == current => (i, transformation(c2, c1))
-    }.toMap -- transformationMap.keySet
-    newBlocks.foreach { case (id, transformation) =>
-      transformationMap(id) = transformationMap(current) :+ transformation
-      process(id)
+    // Returns the transformation that maps block2 to the coordinates of block1
+    def transformation(block1: Seq[Point], block2: Seq[Point]): Transformation = {
+      val dimensions1 = block1
+        .transpose { case (a, b, c) => Seq(a, b, c) }
+        .map(list => list.sorted)
+      val dimensions2a = block2
+        .transpose { case (a, b, c) => Seq(a, b, c) }
+        .map(list => list.sorted)
+      val dimensions2b = dimensions2a
+        .map(list => list.map(x => -x).reverse)
+      val dimensions2 = dimensions2a ++ dimensions2b
+      val multipliers = List(
+        (+1, 0, 0), (0, +1, 0), (0, 0, +1),
+        (-1, 0, 0), (0, -1, 0), (0, 0, -1)
+      )
+      val args = for (
+        list1 <- dimensions1;
+        (list2, index2) <- dimensions2.zipWithIndex;
+        diff = Seq(list1, list2).transpose
+          .map { case Seq(a, b) => a - b }
+          .distinct if diff.length == 1
+      ) yield (index2, diff.head)
+
+      beacon => {
+        val (x, y, z) = beacon
+        args match {
+          case Seq((mx, sx), (my, sy), (mz, sz)) =>
+            val (ax, bx, cx) = multipliers(mx)
+            val (ay, by, cy) = multipliers(my)
+            val (az, bz, cz) = multipliers(mz)
+            (
+              ax * x + bx * y + cx * z + sx,
+              ay * x + by * y + cy * z + sy,
+              az * x + bz * y + cz * z + sz
+            )
+        }
+      }
     }
+
+    def collectTransformations(current: Int = 0): Unit = {
+      val newBlocks = pairs.collect {
+        case (i, j, c1, c2) if i == current => (j, transformation(c1, c2))
+        case (i, j, c1, c2) if j == current => (i, transformation(c2, c1))
+      }.toMap -- transformationMap.keySet
+      newBlocks.foreach { case (id, transformation) =>
+        transformationMap(id) = transformationMap(current) :+ transformation
+        collectTransformations(id)
+      }
+    }
+
+    collectTransformations()
+    transformationMap.toMap
   }
 
-  process()
-  val newMap = transformationMap
+  val transformationMap = buildTransformationMap()
+
+  val beacons = transformationMap
     .map { case (blockId, transformations) =>
       (blockId, transformations.foldRight(blocks(blockId))((transformation, block) => block.map(transformation)))
     }
+    .values.flatten.toSet
 
-  val beacons: Set[Point] = newMap.values.flatten.toSet
   println(s"part 1: ${beacons.size}")
 
   val scanners = transformationMap.map {
@@ -82,44 +127,5 @@ object Day19 extends App {
     beacons.combinations(2)
       .map { case Seq(a, b) => manhattan(a, b) }
       .max
-  }
-
-  // Returns the transformation that maps block2 to the coordinates of block1
-  def transformation(block1: Seq[Point], block2: Seq[Point]): Transformation = {
-    val dimensions1 = block1
-      .transpose { case (a, b, c) => Seq(a, b, c) }
-      .map(list => list.sorted)
-    val dimensions2a = block2
-      .transpose { case (a, b, c) => Seq(a, b, c) }
-      .map(list => list.sorted)
-    val dimensions2b = dimensions2a
-      .map(list => list.map(x => -x).reverse)
-    val dimensions2 = dimensions2a ++ dimensions2b
-    val multipliers = List(
-      (+1, 0, 0), (0, +1, 0), (0, 0, +1),
-      (-1, 0, 0), (0, -1, 0), (0, 0, -1)
-    )
-    val args = for (
-      list1 <- dimensions1;
-      (list2, index2) <- dimensions2.zipWithIndex;
-      diff = Seq(list1, list2).transpose
-        .map { case Seq(a, b) => a - b }
-        .distinct if diff.length == 1
-    ) yield (index2, diff.head)
-
-    beacon => {
-      val (x, y, z) = beacon
-      args match {
-        case Seq((mx, sx), (my, sy), (mz, sz)) =>
-          val (ax, bx, cx) = multipliers(mx)
-          val (ay, by, cy) = multipliers(my)
-          val (az, bz, cz) = multipliers(mz)
-          (
-            ax * x + bx * y + cx * z + sx,
-            ay * x + by * y + cy * z + sy,
-            az * x + bz * y + cz * z + sz
-          )
-      }
-    }
   }
 }
