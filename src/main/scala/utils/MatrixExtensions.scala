@@ -2,7 +2,7 @@ package utils
 
 object MatrixExtensions {
 
-  implicit class Matrix[T](matrix: List[List[T]]) {
+  implicit class Matrix[T](matrix: Seq[Seq[T]]) {
     val rows: Int = matrix.length
     val cols: Int = matrix.headOption.map(_.length).getOrElse(0)
 
