@@ -21,34 +21,27 @@ object Day19 extends App {
 
   type PointDistances = Map[Set[Int], Seq[Point]]
 
-  def toDistance(block: Seq[Point]): PointDistances = {
-    val all = for (
-      i <- block.indices;
-      j <- i + 1 until block.size;
-      a = block(i);
-      b = block(j);
-      diff = Set(Math.abs(a._1 - b._1), Math.abs(a._2 - b._2), Math.abs(a._3 - b._3))
-    ) yield (diff, Seq(a, b))
-    all.toMap
-  }
+  def distance(a: Point, b: Point): Set[Int] =
+    Set(Math.abs(a._1 - b._1), Math.abs(a._2 - b._2), Math.abs(a._3 - b._3))
 
-  val distances: Seq[PointDistances] =
-    blocks.map(b => toDistance(b))
+  def toDistance(block: Seq[Point]): PointDistances =
+    block
+      .combinations(2)
+      .map { case List(a, b) => (distance(a, b), Seq(a, b)) }
+      .toMap
 
-  def common(d1: PointDistances, d2: PointDistances): (Seq[Point], Seq[Point]) = {
-    val commonKeys = (d1.keySet & d2.keySet).toSeq
-    if (commonKeys.size > 65)
-      (commonKeys.flatMap(d1(_)), commonKeys.flatMap(d2(_)))
-    else
-      (Seq.empty, Seq.empty)
-  }
+  def blockPairs(): Seq[(Int, Int, Seq[Point], Seq[Point])] = {
+    val pointDistances: Seq[PointDistances] =
+      blocks.map(b => toDistance(b))
 
-  def blockPairs(): Seq[(Int, Int, Seq[Point], Seq[Point])] =
     for (
-      i <- distances.indices;
-      j <- i + 1 until distances.size;
-      (common1, common2) = common(distances(i), distances(j)) if common1.nonEmpty
-    ) yield (i, j, common1, common2)
+      i <- pointDistances.indices;
+      j <- i + 1 until pointDistances.size;
+      dist1 = pointDistances(i);
+      dist2 = pointDistances(j);
+      commonKeys = dist1.keySet & dist2.keySet if commonKeys.size > 65
+    ) yield (i, j, commonKeys.flatMap(dist1(_)).toSeq, commonKeys.flatMap(dist2(_)).toSeq)
+  }
 
   val pairs = blockPairs()
   val transformationMap = mutable.HashMap(0 -> Seq.empty[Transformation])
@@ -91,29 +84,28 @@ object Day19 extends App {
       .max
   }
 
+  // Returns the transformation that maps block2 to the coordinates of block1
   def transformation(block1: Seq[Point], block2: Seq[Point]): Transformation = {
-    val indices1 = block1.transpose { case (a, b, c) => Seq(a, b, c) }
+    val dimensions1 = block1
+      .transpose { case (a, b, c) => Seq(a, b, c) }
       .map(list => list.sorted)
-    val indices2a = block2.transpose { case (a, b, c) => Seq(a, b, c) }
+    val dimensions2a = block2
+      .transpose { case (a, b, c) => Seq(a, b, c) }
       .map(list => list.sorted)
-    val indices2b = indices2a
+    val dimensions2b = dimensions2a
       .map(list => list.map(x => -x).reverse)
-    val indices2 = indices2a ++ indices2b
+    val dimensions2 = dimensions2a ++ dimensions2b
+    val multipliers = List(
+      (+1, 0, 0), (0, +1, 0), (0, 0, +1),
+      (-1, 0, 0), (0, -1, 0), (0, 0, -1)
+    )
     val args = for (
-      (list1, index1) <- indices1.zipWithIndex;
-      (list2, index2) <- indices2.zipWithIndex;
+      list1 <- dimensions1;
+      (list2, index2) <- dimensions2.zipWithIndex;
       diff = Seq(list1, list2).transpose
         .map { case Seq(a, b) => a - b }
         .distinct if diff.length == 1
     ) yield (index2, diff.head)
-    val multipliers = Map(
-      0 -> (1, 0, 0),
-      1 -> (0, 1, 0),
-      2 -> (0, 0, 1),
-      3 -> (-1, 0, 0),
-      4 -> (0, -1, 0),
-      5 -> (0, 0, -1)
-    )
 
     beacon => {
       val (x, y, z) = beacon
