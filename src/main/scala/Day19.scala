@@ -1,35 +1,12 @@
 import utils.ListExtensions.RichList
 import utils.ResourceFile
 
-import scala.annotation.tailrec
 import scala.collection.mutable
 
 object Day19 extends App {
 
   type Beacon = (Int, Int, Int)
-
-  def spin3(beacon: Beacon): Seq[Beacon] = {
-    val (a, b, c) = beacon
-    Seq((a, b, c), (b, c, a), (c, a, b))
-  }
-
-  def spin(beacon: Beacon): Seq[Beacon] = {
-    val (x, y, z) = beacon
-    val octave = Seq(
-      (x, y, z),
-      (y, -x, z),
-      (-x, -y, z),
-      (-y, x, z),
-      (x, -y, -z),
-      (-y, -x, -z),
-      (-x, y, -z),
-      (y, z, -z)
-    )
-    octave.flatMap(spin3)
-  }
-
-  def spinBlock(beacons: Set[Beacon]): Seq[Set[Beacon]] =
-    beacons.map(spin).transpose.toSeq
+  type Transformation = Beacon => Beacon
 
   def toBeacon(string: String): Beacon =
     string.split(',') match {
@@ -39,7 +16,7 @@ object Day19 extends App {
   val lines = ResourceFile.readLines("day19.txt")
   val blocks = lines
     .splitBySeparator("")
-    .map(_.tail.map(toBeacon).toSet)
+    .map(_.tail.map(toBeacon))
 
   implicit class RichBeacon(beacon: Beacon) {
     def +(other: Beacon): Beacon = (beacon._1 + other._1, beacon._2 + other._2, beacon._3 + other._3)
@@ -47,66 +24,133 @@ object Day19 extends App {
     def -(other: Beacon): Beacon = (beacon._1 - other._1, beacon._2 - other._2, beacon._3 - other._3)
   }
 
-  def maxOverlap(block1: Set[Beacon], block2: Set[Beacon]): Option[Set[Beacon]] = {
-    val differences = for (
-      b1 <- block1.iterator;
-      block2v <- spinBlock(block2);
-      b2 <- block2v;
-      diff = b1 - b2;
-      block2m = block2v.map(_ + diff) if (block1 & block2m).size >= 12
-    ) yield block2m
-    differences.nextOption()
+  type BlockDistance = Map[Set[Int], Seq[Beacon]]
+
+  def toDistance(block: Seq[Beacon]): BlockDistance = {
+    val all = for (
+      i <- block.indices;
+      j <- i + 1 until block.size;
+      a = block(i);
+      b = block(j);
+      diff = Set(Math.abs(a._1 - b._1), Math.abs(a._2 - b._2), Math.abs(a._3 - b._3))
+    ) yield (diff, Seq(a, b))
+    all.toMap // .sorted.take(20 * block.size)
   }
 
-  var unified = blocks.head
+  val distances: Seq[BlockDistance] =
+    blocks.map(b => toDistance(b))
 
-  @tailrec
-  def findOverlaps(blocks: Seq[Set[Beacon]]): Unit = {
-    println(s"... ${blocks.size}")
-    if (blocks.nonEmpty) {
-      val (overlaps, noOverlaps) = blocks
-        .map { block => (block, maxOverlap(unified, block)) }
-        .partition(_._2.isDefined)
-      overlaps.foreach(unified ++= _._2.get)
-      findOverlaps(noOverlaps.map(_._1))
+  def common(d1: BlockDistance, d2: BlockDistance): (Seq[Beacon], Seq[Beacon]) = {
+    val commonKeys = (d1.keySet & d2.keySet).toSeq
+    if (commonKeys.size > 65)
+      (commonKeys.flatMap(d1(_)), commonKeys.flatMap(d2(_)))
+    else
+      (Seq.empty, Seq.empty)
+  }
+
+  def blockPairs(): Seq[(Int, Int, Seq[Beacon], Seq[Beacon])] =
+    for (
+      i <- distances.indices;
+      j <- i + 1 until distances.size;
+      (common1, common2) = common(distances(i), distances(j)) if common1.nonEmpty
+    ) yield (i, j, common1, common2)
+
+  def collect(collected: Set[Int], blockPairs: Seq[(Int, Int, Seq[Beacon], Seq[Beacon])], next: Int): Set[Int] = {
+    val links = blockPairs.collect {
+      case (i, j, c1, c2) if i == next => j
+      case (i, j, c1, c2) if j == next => i
+    }.toSet -- collected
+    Set(next) ++ links
+      .map(link => collect(collected + next, blockPairs, link))
+      .foldLeft(Set.empty[Int])(_ ++ _)
+  }
+
+  val pairs = blockPairs()
+  val transformationMap = mutable.HashMap(0 -> Seq.empty[Transformation])
+  val verificationMap = mutable.HashMap(0 -> Seq.empty[(Int, Int)])
+
+  def process(current: Int = 0): Unit = {
+    val newBlocks = pairs.collect {
+      case (i, j, c1, c2) if i == current => (j, transformation(c1, c2))
+      case (i, j, c1, c2) if j == current => (i, transformation(c2, c1))
+    }.toMap -- transformationMap.keySet
+    newBlocks.foreach { case (id, transformation) =>
+      verificationMap(id) = verificationMap(current) :+ (current -> id)
+      transformationMap(id) = transformationMap(current) :+ transformation
+      process(id)
     }
   }
 
-  val indexedBlocks = blocks.zipWithIndex
-    .map{ case (block, index) => (index, block)}
-    .toMap
+  process()
+  val newMap = transformationMap
+    .map { case (blockId, transformations) =>
+      (blockId, transformations.foldRight(blocks(blockId))((transformation, block) => block.map(transformation)))
+    }
 
-  val unifiedBlocks = mutable.HashMap[Int, Set[Beacon]]()
+  val beacons: Set[(Int, Int, Int)] = newMap.values.flatten.toSet
+  println(s"part 1: ${beacons.size}")
 
-  def unify(blocks: Map[Int, Set[Beacon]], key: Int): Unit = {
-    if (blocks.nonEmpty) {
-      val homeBlock = unifiedBlocks(key)
-      unifiedBlocks += (key -> homeBlock)
-      val foundBlocks = (blocks - key)
-        .map { case (idx, block) => (idx, maxOverlap(homeBlock, block)) }
-        .collect { case (idx, Some(transformedBlock)) => (idx, transformedBlock) }
-      unifiedBlocks ++= foundBlocks
-      foundBlocks.foreach {
-        case (idx, _) =>
-          val remainingMap = indexedBlocks -- unifiedBlocks.keySet
-          println(remainingMap.size)
-          unify(remainingMap, idx)
+  val scanners = transformationMap.map {
+    case (_, transformations) =>
+      transformations.foldRight((0,0,0))((transformation, scanner) => transformation(scanner))
+  }
+  println(s"part 2: ${maxManhattan(scanners.toSeq)}")
+
+  def manhattan(beacon1: Beacon, beacon2: Beacon): Int = {
+    val (x1, y1, z1) = beacon1
+    val (x2, y2, z2) = beacon2
+    Math.abs(x1 - x2) + Math.abs(y1 - y2) + Math.abs(z1 - z2)
+  }
+
+  def maxManhattan(beacons: Seq[Beacon]): Int = {
+    beacons.combinations(2)
+      .map { case Seq(a, b) => manhattan(a, b) }
+      .max
+  }
+
+  def boundingBox(beacons: Seq[Beacon]): Seq[Int] = {
+    beacons.transpose { case (a, b, c) => Seq(a, b, c) } match {
+      case Seq(xs, ys, zs) => Seq(xs.max - xs.min, ys.max - ys.min, zs.max - zs.min)
+    }
+  }
+
+  def transformation(block1: Seq[Beacon], block2: Seq[Beacon]): Transformation = {
+    val indices1 = block1.transpose { case (a, b, c) => Seq(a, b, c) }
+      .map(list => list.sorted)
+    val indices2a = block2.transpose { case (a, b, c) => Seq(a, b, c) }
+      .map(list => list.sorted)
+    val indices2b = indices2a
+      .map(list => list.map(x => -x).reverse)
+    val indices2 = indices2a ++ indices2b
+    val args = for (
+      (list1, index1) <- indices1.zipWithIndex;
+      (list2, index2) <- indices2.zipWithIndex;
+      diff = Seq(list1, list2).transpose
+        .map { case Seq(a, b) => a - b }
+        .distinct if diff.length == 1
+    ) yield (index2, diff.head)
+    val multipliers = Map(
+      0 -> (1, 0, 0),
+      1 -> (0, 1, 0),
+      2 -> (0, 0, 1),
+      3 -> (-1, 0, 0),
+      4 -> (0, -1, 0),
+      5 -> (0, 0, -1)
+    )
+
+    beacon => {
+      val (x, y, z) = beacon
+      args match {
+        case Seq((mx, sx), (my, sy), (mz, sz)) =>
+          val (ax, bx, cx) = multipliers(mx)
+          val (ay, by, cy) = multipliers(my)
+          val (az, bz, cz) = multipliers(mz)
+          (
+            ax * x + bx * y + cx * z + sx,
+            ay * x + by * y + cy * z + sy,
+            az * x + bz * y + cz * z + sz
+          )
       }
     }
   }
-
-  do {
-    val remainingBlocks = indexedBlocks -- unifiedBlocks.keySet
-    val key = remainingBlocks.head._1
-    unifiedBlocks += remainingBlocks.head
-    unify(remainingBlocks, key)
-  } while (indexedBlocks.size > unifiedBlocks.size)
-
-  unify(indexedBlocks, 0)
-  println(indexedBlocks.size, unifiedBlocks.size)
-  println(unifiedBlocks.values.reduce(_ ++ _).size)
-
-
-//  findOverlaps(blocks.tail)
-//  println(s"part 1: ${res.size}")
 }
