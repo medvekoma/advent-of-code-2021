@@ -47,17 +47,17 @@ object Day19 extends App {
   def buildTransformationMap(blockPairs: BlockPairs): TransformationMap = {
 
     @tailrec
-    def collect(map: TransformationMap, newIndices: Set[Int]): TransformationMap = {
-      val newBlocks = blockPairs.collect {
+    def collectTransformations(map: TransformationMap, newIndices: Set[Int]): TransformationMap = {
+      val newTransformations = blockPairs.collect {
         case (i1, i2, c1, c2) if newIndices.contains(i1) => (i2, (i1, transformation(c1, c2)))
         case (i1, i2, c1, c2) if newIndices.contains(i2) => (i1, (i2, transformation(c2, c1)))
       }.toMap -- map.keySet
-      val newMap = newBlocks
-        .map { case (newKey, (oldKey, transformation)) => (newKey, map(oldKey) :+ transformation) }
+      val newMap = newTransformations
+        .map { case (newIdx, (oldIdx, transformation)) => (newIdx, map(oldIdx) :+ transformation) }
       if (newMap.isEmpty)
         map
       else
-        collect(map ++ newMap, newMap.keySet)
+        collectTransformations(map ++ newMap, newMap.keySet)
     }
 
     // Returns the transformation that maps block2 to the coordinates of block1
@@ -96,7 +96,7 @@ object Day19 extends App {
       }
     }
 
-    collect(Map(0 -> Seq.empty[Transformation]), Set(0))
+    collectTransformations(Map(0 -> Seq.empty[Transformation]), Set(0))
   }
 
   lazy val transformationMap = buildTransformationMap(blockPairs())
