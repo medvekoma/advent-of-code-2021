@@ -1,7 +1,7 @@
 import utils.ListExtensions.RichList
 import utils.ResourceFile
 
-import scala.collection.mutable
+import scala.annotation.tailrec
 
 object Day19 extends App {
 
@@ -19,42 +19,45 @@ object Day19 extends App {
       }
     }
 
-  type BlockEdges = Map[Set[Int], Seq[Point]]
-
   def edge(a: Point, b: Point): Set[Int] =
     Set(Math.abs(a._1 - b._1), Math.abs(a._2 - b._2), Math.abs(a._3 - b._3))
 
-  def toBlockEdges(block: Seq[Point]): BlockEdges =
+  type Edges = Map[Set[Int], Seq[Point]]
+
+  def toEdges(block: Seq[Point]): Edges =
     block.combinations(2)
       .map { case List(a, b) => (edge(a, b), Seq(a, b)) }
       .toMap
 
-  def blockPairs(): Seq[(Int, Int, Seq[Point], Seq[Point])] = {
-    val edges: Seq[BlockEdges] =
-      blocks.map(b => toBlockEdges(b))
+  type BlockPairs = Seq[(Int, Int, Seq[Point], Seq[Point])]
+
+  def blockPairs(): BlockPairs = {
+    val edgeBlocks: Seq[Edges] =
+      blocks.map(b => toEdges(b))
 
     for (
-      i <- edges.indices;
-      j <- i + 1 until edges.size;
-      edge1 = edges(i);
-      edge2 = edges(j);
-      commonEdges = edge1.keySet & edge2.keySet if commonEdges.size > 65
-    ) yield (i, j, commonEdges.flatMap(edge1(_)).toSeq, commonEdges.flatMap(edge2(_)).toSeq)
+      Seq((edge1, i1), (edge2, i2)) <- edgeBlocks.zipWithIndex.combinations(2).toSeq;
+      commonEdges = edge1.keySet & edge2.keySet if commonEdges.size > 65;
+      commonPoints1 = commonEdges.flatMap(edge1(_)).toSeq;
+      commonPoints2 = commonEdges.flatMap(edge2(_)).toSeq
+    ) yield (i1, i2, commonPoints1, commonPoints2)
   }
 
-  def buildTransformationMap(): Map[Int, Seq[Transformation]] = {
-    val pairs = blockPairs()
-    val transformationMap = mutable.HashMap(0 -> Seq.empty[Transformation])
+  type TransformationMap = Map[Int, Seq[Transformation]]
+  def buildTransformationMap(blockPairs: BlockPairs): TransformationMap = {
 
-    def collectTransformations(current: Int = 0): Unit = {
-      val newBlocks = pairs.collect {
-        case (i, j, c1, c2) if i == current => (j, transformation(c1, c2))
-        case (i, j, c1, c2) if j == current => (i, transformation(c2, c1))
-      }.toMap -- transformationMap.keySet
-      newBlocks.foreach { case (id, transformation) =>
-        transformationMap(id) = transformationMap(current) :+ transformation
-        collectTransformations(id)
-      }
+    @tailrec
+    def collect(map: TransformationMap, newIndices: Set[Int]): TransformationMap = {
+      val newBlocks = blockPairs.collect {
+        case (i1, i2, c1, c2) if newIndices.contains(i1) => (i2, (i1, transformation(c1, c2)))
+        case (i1, i2, c1, c2) if newIndices.contains(i2) => (i1, (i2, transformation(c2, c1)))
+      }.toMap -- map.keySet
+      val newMap = newBlocks
+        .map { case (newKey, (oldKey, transformation)) => (newKey, map(oldKey) :+ transformation) }
+      if (newMap.isEmpty)
+        map
+      else
+        collect(map ++ newMap, newMap.keySet)
     }
 
     // Returns the transformation that maps block2 to the coordinates of block1
@@ -93,11 +96,10 @@ object Day19 extends App {
       }
     }
 
-    collectTransformations()
-    transformationMap.toMap
+    collect(Map(0 -> Seq.empty[Transformation]), Set(0))
   }
 
-  lazy val transformationMap = buildTransformationMap()
+  lazy val transformationMap = buildTransformationMap(blockPairs())
 
   def beacons(): Set[Point] =
     transformationMap.flatMap { case (blockId, transformations) =>
@@ -105,7 +107,6 @@ object Day19 extends App {
         block.map(transformation)
       }
     }.toSet
-
 
   println(s"part 1: ${beacons().size}")
 
