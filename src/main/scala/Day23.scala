@@ -27,10 +27,10 @@ object Day23 extends App {
 
     private val restPlaces = Seq(1, 2, 4, 6, 8, 10, 11).map((0, _)).toList
 
-    private def replace(cell1: Cell, cell2: Cell): List[List[Char]] = {
+    private def replace(source: Cell, target: Cell): List[List[Char]] = {
       List.tabulate[Char](matrix.rows, matrix.cols) {
-        case `cell1` => matrix(cell2)
-        case `cell2` => matrix(cell1)
+        case `source` => matrix(target)
+        case `target` => matrix(source)
         case x => matrix(x)
       }
     }
@@ -66,18 +66,6 @@ object Day23 extends App {
       }
     }
 
-    def stepInCells: Set[Cell] = {
-      homeMap.keySet
-        .map(ch => homeState(ch))
-        .collect { case HomeStepIn(cell) => cell }
-    }
-
-    def stepOutCells: Set[Cell] = {
-      homeMap.keySet
-        .map(ch => homeState(ch))
-        .collect { case HomeStepOut(cell) => cell }
-    }
-
     def stepInCell(ch: Char): Option[Cell] =
       homeState(ch) match {
         case HomeStepIn(cell) =>
@@ -94,13 +82,18 @@ object Day23 extends App {
           None
       }
 
+    def stepOutCells: Set[Cell] =
+      homeMap.keySet
+        .flatMap(stepOutCell)
+
+
     def isReady: Boolean =
       homeMap.keySet.forall(ch => homeState(ch) == HomeReady)
 
     def contentOf(cells: Seq[Cell]): Seq[Char] =
       cells.map(matrix(_))
 
-    def move(source: Cell, target: Cell): Option[Board] = {
+    def move(source: Cell, target: Cell): Option[Board] =
       costMap.get(matrix(source)) match {
         case None => None
         case Some(pieceCost) =>
@@ -110,7 +103,6 @@ object Day23 extends App {
           else
             None
       }
-    }
 
     def emptyRestPlaces: Seq[Cell] =
       restPlaces.filter(matrix(_) == ' ')
@@ -141,9 +133,7 @@ object Day23 extends App {
       cost.toString + matrix.map(_.mkString).mkString("\n", "\n", "\n")
   }
 
-  val board = new Board(matrix)
-
-  def findMinimumCost(board: Board): Option[Int] = {
+  def findMinimumCost(board: Board): Option[Int] =
     if (board.isReady)
       Some(board.cost)
     else board.firstStepIn() match {
@@ -154,9 +144,16 @@ object Day23 extends App {
           .flatMap(newBoard => findMinimumCost(newBoard))
           .minOption
     }
-  }
 
+  val board2 = new Board(matrix)
+  val board1 = new Board(matrix.take(2) ++ matrix.drop(4))
+
+  println("This will take about two minutes ...")
   Measure.dumpTime() {
-    println(findMinimumCost(board))
+    println(s"part 1: ${findMinimumCost(board1)}")
+  }
+  println("Another minute to go ...")
+  Measure.dumpTime() {
+    println(s"part 2: ${findMinimumCost(board2)}")
   }
 }
