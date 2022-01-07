@@ -11,7 +11,10 @@ object Day23 extends App {
 
   type Cell = (Int, Int)
 
-  class Board(matrix: List[List[Char]], val cost: Int = 0) {
+  class Board(map: Map[Cell, Char], val cost: Int = 0) {
+
+    def matrix(cell: Cell): Char =
+      map.getOrElse(cell, ' ')
 
     private val costMap: Map[Char, Int] = Map(
       'A' -> 1,
@@ -20,19 +23,16 @@ object Day23 extends App {
       'D' -> 1000
     )
 
-    private val homeRows = (1 until matrix.rows).toList
+    private val homeRows = (1 until 4).toList // TODO: rows
     private val homeCols = Map('A' -> 3, 'B' -> 5, 'C' -> 7, 'D' -> 9)
     private val homeMap: Map[Char, List[Cell]] =
       homeCols.map { case (ch, col) => (ch, homeRows.map((_, col))) }
 
     private val restPlaces = Seq(1, 2, 4, 6, 8, 10, 11).map((0, _)).toList
 
-    private def replace(source: Cell, target: Cell): List[List[Char]] = {
-      List.tabulate[Char](matrix.rows, matrix.cols) {
-        case `source` => matrix(target)
-        case `target` => matrix(source)
-        case x => matrix(x)
-      }
+    private def replace(source: Cell, target: Cell): Map[Cell, Char] = {
+      val ch = map(source)
+      map - source + (target -> ch)
     }
 
     private def pathCells(cell1: Cell, cell2: Cell): Set[Cell] =
@@ -129,11 +129,16 @@ object Day23 extends App {
       boards.toSeq
     }
 
-    override def toString: String =
-      cost.toString + matrix.map(_.mkString).mkString("\n", "\n", "\n")
+    override def toString: String = {
+      val rows = map.keySet.map(_._1).max + 1
+      val cols = map.keySet.map(_._2).max + 1
+      val mx = List.tabulate(rows, cols) ((r, c) => matrix((r, c)))
+      cost.toString + mx.map(_.mkString).mkString("\n", "\n", "\n")
+    }
   }
 
-  def findMinimumCost(board: Board): Option[Int] =
+  def findMinimumCost(board: Board): Option[Int] = {
+    println(board)
     if (board.isReady)
       Some(board.cost)
     else board.firstStepIn() match {
@@ -144,14 +149,23 @@ object Day23 extends App {
           .flatMap(newBoard => findMinimumCost(newBoard))
           .minOption
     }
-
-  val board2 = new Board(matrix)
-  val board1 = new Board(matrix.take(2) ++ matrix.drop(4))
-
-  println("This will take about two minutes ...")
-  Measure.dumpTime() {
-    println(s"part 1: ${findMinimumCost(board1)}")
   }
+
+  def toMap(matrix: List[List[Char]]): Map[Cell, Char] =
+    matrix.cells
+      .map(cell => (cell, matrix(cell)))
+      .filter { case (cell, ch) => "ABCD".contains(ch)}
+      .toMap
+
+  val map = toMap(matrix)
+
+  val board2 = new Board(map)
+//  val board1 = new Board(matrix.take(2) ++ matrix.drop(4))
+
+//  println("This will take about two minutes ...")
+//  Measure.dumpTime() {
+//    println(s"part 1: ${findMinimumCost(board1)}")
+//  }
   println("Another minute to go ...")
   Measure.dumpTime() {
     println(s"part 2: ${findMinimumCost(board2)}")
