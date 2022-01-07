@@ -41,10 +41,13 @@ object Day23 extends App {
       cellMap - source + (target -> ch)
     }
 
-    private def pathCells(source: Cell, target: Cell): Seq[Cell] =
-      ((source._1 - 1 until 0 by -1).map(row => (row, source._2)) ++
-        (Math.min(source._2, target._2) to Math.max(source._2, target._2)).map(col => (0, col)) ++
-        (0 to target._1).map(row => (row, target._2))).distinct.filterNot(_ == source)
+    private def pathCells(source: Cell, target: Cell): Seq[Cell] = {
+      val (sourceRow, sourceCol) = source
+      val (targetRow, targetCol) = target
+      ((sourceRow - 1 until 0 by -1).map(row => (row, sourceCol)) ++
+        (Math.min(sourceCol, targetCol) to Math.max(sourceCol, targetCol)).map(col => (0, col)) ++
+        (0 to targetRow).map(row => (row, targetCol))).distinct.filterNot(_ == source)
+    }
 
     private def isValidMove(path: Seq[Cell]): Boolean =
       contentOf(path).distinct == Seq(' ')
