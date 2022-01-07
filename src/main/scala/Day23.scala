@@ -43,7 +43,7 @@ object Day23 extends App {
     }
 
     private def pathCells(source: Cell, target: Cell): Set[Cell] =
-      (source._1 -1 until 0 by -1).map(row => (row, source._2)).toSet ++
+      (source._1 - 1 until 0 by -1).map(row => (row, source._2)).toSet ++
         (Math.min(source._2, target._2) to Math.max(source._2, target._2)).map(col => (0, col)).toSet ++
         (0 to target._1).map(row => (row, target._2)).toSet -- Set(source)
 
@@ -95,10 +95,15 @@ object Day23 extends App {
           None
       }
 
+    def stepInCells: Map[Char, Cell] =
+      homeMap.keySet
+        .map(ch => (ch, stepInCell(ch)))
+        .collect { case (ch, Some(cell)) => (ch, cell) }
+        .toMap
+
     def stepOutCells: Set[Cell] =
       homeMap.keySet
         .flatMap(stepOutCell)
-
 
     def isReady: Boolean =
       homeMap.keySet.forall(ch => homeState(ch) == HomeReady)
@@ -114,9 +119,6 @@ object Day23 extends App {
             None
       }
 
-    def emptyRestPlaces: Seq[Cell] =
-      restPlaces.filter(contentOf(_) == ' ')
-
     def emptyRestPlaces(cell: Cell): Seq[Cell] = {
       val (before, after) = restPlaces.partition(rest => rest._2 < cell._2)
       before.reverse.takeWhile(contentOf(_) == ' ') ++ after.takeWhile(contentOf(_) == ' ')
@@ -125,11 +127,15 @@ object Day23 extends App {
     def occupiedRestPlaces: Seq[Cell] =
       restPlaces.filter(contentOf(_) != ' ')
 
+    def occupiedRestPlaces(cell: Cell): Seq[Cell] = {
+      val (before, after) = occupiedRestPlaces.partition(rest => rest._2 < cell._2)
+      (before.lastOption ++ after.headOption).toSeq
+    }
+
     def firstStepIn(): Option[Board] = {
       val possibleRuns = for (
-        source <- (occupiedRestPlaces ++ stepOutCells).iterator;
-        ch = contentOf(source);
-        target <- stepInCell(ch);
+        (ch, target) <- stepInCells.iterator;
+        source <- occupiedRestPlaces(target) ++ stepOutCells if contentOf(source) == ch;
         board <- move(source, target)
       ) yield board
       possibleRuns.nextOption()
@@ -151,6 +157,7 @@ object Day23 extends App {
     }
 
     def findMinimumCost(): Option[Int] = {
+//      println(this)
       if (isReady)
         Some(cost)
       else firstStepIn() match {
@@ -167,11 +174,11 @@ object Day23 extends App {
   val board2 = Board.fromMatrix(matrix)
   val board1 = Board.fromMatrix(matrix.take(2) ++ matrix.drop(4))
 
-  println("This will take about two minutes ...")
+  println("This will take about a minute ...")
   Measure.dumpTime() {
     println(s"part 1: ${board1.findMinimumCost()}")
   }
-  println("Another minute to go ...")
+  println("Please hold on ...")
   Measure.dumpTime() {
     println(s"part 2: ${board2.findMinimumCost()}")
   }
