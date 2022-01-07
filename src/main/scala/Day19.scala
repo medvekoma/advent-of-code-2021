@@ -1,4 +1,4 @@
-import utils.ListExtensions.RichList
+import utils.EnumerationExtensions.RichSeq
 import utils.ResourceFile
 
 import scala.annotation.tailrec
