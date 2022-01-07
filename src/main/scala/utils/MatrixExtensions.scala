@@ -27,6 +27,11 @@ object MatrixExtensions {
       )
       yield (r, c)
 
+    def update(cell: (Int, Int), value: T): Seq[Seq[T]] = {
+      val (row, col) = cell
+      matrix.updated(row, matrix(row).updated(col, value))
+    }
+
     def asString: String =
       matrix.map(_.mkString).mkString("\n")
   }

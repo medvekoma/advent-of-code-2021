@@ -13,15 +13,11 @@ object Day23 extends App {
 
   object Board {
     def fromMatrix(matrix: List[List[Char]]): Board = {
-      val map = matrix.cells
-        .map(cell => (cell, matrix(cell)))
-        .filter { case (cell, ch) => "ABCD".contains(ch) }
-        .toMap
-      new Board(map, matrix.rows, 0)
+      new Board(matrix, 0)
     }
   }
 
-  class Board(cellMap: Map[Cell, Char], rows: Int, val cost: Int) {
+  class Board(matrix: Seq[Seq[Char]], val cost: Int) {
 
     private val costMap: Map[Char, Int] = Map(
       'A' -> 1,
@@ -30,16 +26,17 @@ object Day23 extends App {
       'D' -> 1000
     )
 
-    private val homeRows = (1 until rows).toList
+    private val homeRows = (1 until matrix.rows).toList
     private val homeCols = Map('A' -> 3, 'B' -> 5, 'C' -> 7, 'D' -> 9)
     private val homeMap: Map[Char, List[Cell]] =
       homeCols.map { case (ch, col) => (ch, homeRows.map((_, col))) }
 
     private val restPlaces = Seq(1, 2, 4, 6, 8, 10, 11).map((0, _)).toList
 
-    private def replace(source: Cell, target: Cell): Map[Cell, Char] = {
-      val ch = cellMap(source)
-      cellMap - source + (target -> ch)
+    private def replace(source: Cell, target: Cell): Seq[Seq[Char]] = {
+      val sourceCh = matrix(source)
+      val targetCh = matrix(target)
+      matrix.update(source, targetCh).update(target, sourceCh)
     }
 
     private def pathCells(source: Cell, target: Cell): Set[Cell] =
@@ -48,9 +45,9 @@ object Day23 extends App {
         (0 to target._1).map(row => (row, target._2)).toSet -- Set(source)
 
     private def isValidMove(path: Set[Cell]): Boolean =
-      (path & cellMap.keySet).isEmpty
+      contentOf(path.toSeq).toSet == Set(' ')
 
-    trait HomeState
+  trait HomeState
 
     case object HomeReady extends HomeState
 
@@ -59,7 +56,7 @@ object Day23 extends App {
     case class HomeStepIn(toCell: Cell) extends HomeState
 
     def contentOf(cell: Cell): Char =
-      cellMap.getOrElse(cell, ' ')
+      matrix(cell)
 
     def contentOf(cells: Seq[Cell]): Seq[Char] =
       cells.map(contentOf)
@@ -114,7 +111,7 @@ object Day23 extends App {
         case Some(pieceCost) =>
           val path = pathCells(source, target)
           if (isValidMove(path))
-            Some(new Board(replace(source, target), this.rows, cost + pieceCost * path.size))
+            Some(new Board(replace(source, target), cost + pieceCost * path.size))
           else
             None
       }
@@ -151,8 +148,6 @@ object Day23 extends App {
     }
 
     override def toString: String = {
-      val cols = restPlaces.map(_._2).last
-      val matrix = List.tabulate(rows, cols)((r, c) => contentOf((r, c)))
       cost.toString + matrix.map(_.mkString).mkString("\n", "\n", "\n")
     }
 
