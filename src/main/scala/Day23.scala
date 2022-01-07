@@ -11,10 +11,17 @@ object Day23 extends App {
 
   type Cell = (Int, Int)
 
-  class Board(map: Map[Cell, Char], val cost: Int = 0) {
+  object Board {
+    def fromMatrix(matrix: List[List[Char]]): Board = {
+      val map = matrix.cells
+        .map(cell => (cell, matrix(cell)))
+        .filter { case (cell, ch) => "ABCD".contains(ch) }
+        .toMap
+      new Board(map, matrix.rows, 0)
+    }
+  }
 
-    def matrix(cell: Cell): Char =
-      map.getOrElse(cell, ' ')
+  class Board(cellMap: Map[Cell, Char], rows: Int, val cost: Int) {
 
     private val costMap: Map[Char, Int] = Map(
       'A' -> 1,
@@ -23,7 +30,7 @@ object Day23 extends App {
       'D' -> 1000
     )
 
-    private val homeRows = (1 to 4).toList // TODO: rows
+    private val homeRows = (1 until rows).toList
     private val homeCols = Map('A' -> 3, 'B' -> 5, 'C' -> 7, 'D' -> 9)
     private val homeMap: Map[Char, List[Cell]] =
       homeCols.map { case (ch, col) => (ch, homeRows.map((_, col))) }
@@ -31,18 +38,17 @@ object Day23 extends App {
     private val restPlaces = Seq(1, 2, 4, 6, 8, 10, 11).map((0, _)).toList
 
     private def replace(source: Cell, target: Cell): Map[Cell, Char] = {
-      val ch = map(source)
-      val res = map - source + (target -> ch)
-      res
+      val ch = cellMap(source)
+      cellMap - source + (target -> ch)
     }
 
-    private def pathCells(cell1: Cell, cell2: Cell): Set[Cell] =
-      (cell1._1 until 0 by -1).map(row => (row, cell1._2)).toSet ++
-        (Math.min(cell1._2, cell2._2) to Math.max(cell1._2, cell2._2)).map(col => (0, col)).toSet ++
-        (0 to cell2._1).map(row => (row, cell2._2)).toSet -- Set(cell1)
+    private def pathCells(source: Cell, target: Cell): Set[Cell] =
+      (source._1 -1 until 0 by -1).map(row => (row, source._2)).toSet ++
+        (Math.min(source._2, target._2) to Math.max(source._2, target._2)).map(col => (0, col)).toSet ++
+        (0 to target._1).map(row => (row, target._2)).toSet -- Set(source)
 
     private def isValidMove(path: Set[Cell]): Boolean =
-      path.forall(cell => matrix(cell) == ' ')
+      (path & cellMap.keySet).isEmpty
 
     trait HomeState
 
@@ -52,18 +58,24 @@ object Day23 extends App {
 
     case class HomeStepIn(toCell: Cell) extends HomeState
 
+    def contentOf(cell: Cell): Char =
+      cellMap.getOrElse(cell, ' ')
+
+    def contentOf(cells: Seq[Cell]): Seq[Char] =
+      cells.map(contentOf)
+
     def homeState(ch: Char): HomeState = {
       val cells = homeMap(ch)
-      val content = contentOf(cells).distinct.sorted.toList
-      content match {
+      val contentList = contentOf(cells).distinct.sorted.toList
+      contentList match {
         case List(`ch`) =>
           HomeReady
         case List(' ', `ch`) =>
-          HomeStepIn(cells.findLast(matrix(_) == ' ').get)
+          HomeStepIn(cells.findLast(contentOf(_) == ' ').get)
         case List(' ') =>
           HomeStepIn(cells.last)
         case _ =>
-          HomeStepOut(cells.find(matrix(_) != ' ').get)
+          HomeStepOut(cells.find(contentOf(_) != ' ').get)
       }
     }
 
@@ -91,30 +103,27 @@ object Day23 extends App {
     def isReady: Boolean =
       homeMap.keySet.forall(ch => homeState(ch) == HomeReady)
 
-    def contentOf(cells: Seq[Cell]): Seq[Char] =
-      cells.map(matrix(_))
-
     def move(source: Cell, target: Cell): Option[Board] =
-      costMap.get(matrix(source)) match {
+      costMap.get(contentOf(source)) match {
         case None => None
         case Some(pieceCost) =>
           val path = pathCells(source, target)
           if (isValidMove(path))
-            Some(new Board(replace(source, target), cost + pieceCost * path.size))
+            Some(new Board(replace(source, target), this.rows, cost + pieceCost * path.size))
           else
             None
       }
 
     def emptyRestPlaces: Seq[Cell] =
-      restPlaces.filter(matrix(_) == ' ')
+      restPlaces.filter(contentOf(_) == ' ')
 
     def occupiedRestPlaces: Seq[Cell] =
-      restPlaces.filter(matrix(_) != ' ')
+      restPlaces.filter(contentOf(_) != ' ')
 
     def firstStepIn(): Option[Board] = {
       val possibleRuns = for (
         source <- (occupiedRestPlaces ++ stepOutCells).iterator;
-        ch = matrix(source);
+        ch = contentOf(source);
         target <- stepInCell(ch);
         board <- move(source, target)
       ) yield board
@@ -131,44 +140,34 @@ object Day23 extends App {
     }
 
     override def toString: String = {
-      val rows = map.keySet.map(_._1).max + 1
-      val cols = map.keySet.map(_._2).max + 1
-      val mx = List.tabulate(rows, cols) ((r, c) => matrix((r, c)))
-      cost.toString + mx.map(_.mkString).mkString("\n", "\n", "\n")
+      val cols = restPlaces.map(_._2).last
+      val matrix = List.tabulate(rows, cols)((r, c) => contentOf((r, c)))
+      cost.toString + matrix.map(_.mkString).mkString("\n", "\n", "\n")
+    }
+
+    def findMinimumCost(): Option[Int] = {
+      if (isReady)
+        Some(cost)
+      else firstStepIn() match {
+        case Some(board) =>
+          board.findMinimumCost()
+        case None =>
+          allStepOuts()
+            .flatMap(board => board.findMinimumCost())
+            .minOption
+      }
     }
   }
 
-  def findMinimumCost(board: Board): Option[Int] = {
-//    println(board)
-    if (board.isReady)
-      Some(board.cost)
-    else board.firstStepIn() match {
-      case Some(newBoard) =>
-        findMinimumCost(newBoard)
-      case None =>
-        board.allStepOuts()
-          .flatMap(newBoard => findMinimumCost(newBoard))
-          .minOption
-    }
+  val board2 = Board.fromMatrix(matrix)
+  val board1 = Board.fromMatrix(matrix.take(2) ++ matrix.drop(4))
+
+  println("This will take about two minutes ...")
+  Measure.dumpTime() {
+    println(s"part 1: ${board1.findMinimumCost()}")
   }
-
-  def toMap(matrix: List[List[Char]]): Map[Cell, Char] =
-    matrix.cells
-      .map(cell => (cell, matrix(cell)))
-      .filter { case (cell, ch) => "ABCD".contains(ch)}
-      .toMap
-
-  val map = toMap(matrix)
-
-  val board2 = new Board(map)
-//  val board1 = new Board(matrix.take(2) ++ matrix.drop(4))
-
-//  println("This will take about two minutes ...")
-//  Measure.dumpTime() {
-//    println(s"part 1: ${findMinimumCost(board1)}")
-//  }
   println("Another minute to go ...")
   Measure.dumpTime() {
-    println(s"part 2: ${findMinimumCost(board2)}")
+    println(s"part 2: ${board2.findMinimumCost()}")
   }
 }
