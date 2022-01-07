@@ -23,7 +23,7 @@ object Day23 extends App {
       'D' -> 1000
     )
 
-    private val homeRows = (1 until 4).toList // TODO: rows
+    private val homeRows = (1 to 4).toList // TODO: rows
     private val homeCols = Map('A' -> 3, 'B' -> 5, 'C' -> 7, 'D' -> 9)
     private val homeMap: Map[Char, List[Cell]] =
       homeCols.map { case (ch, col) => (ch, homeRows.map((_, col))) }
@@ -32,7 +32,8 @@ object Day23 extends App {
 
     private def replace(source: Cell, target: Cell): Map[Cell, Char] = {
       val ch = map(source)
-      map - source + (target -> ch)
+      val res = map - source + (target -> ch)
+      res
     }
 
     private def pathCells(cell1: Cell, cell2: Cell): Set[Cell] =
@@ -138,7 +139,7 @@ object Day23 extends App {
   }
 
   def findMinimumCost(board: Board): Option[Int] = {
-    println(board)
+//    println(board)
     if (board.isReady)
       Some(board.cost)
     else board.firstStepIn() match {
