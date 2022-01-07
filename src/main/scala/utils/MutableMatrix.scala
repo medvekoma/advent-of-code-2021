@@ -19,6 +19,6 @@ class MutableMatrix[T](init: Array[Array[T]]) {
     wrapped(cell._1)(cell._2) = value
 
   override def toString: String =
-    wrapped.map(row => row.mkString(", "))
+    wrapped.map(row => row.mkString(" "))
       .mkString("\n")
 }
