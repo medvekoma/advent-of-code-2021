@@ -117,6 +117,11 @@ object Day23 extends App {
     def emptyRestPlaces: Seq[Cell] =
       restPlaces.filter(contentOf(_) == ' ')
 
+    def emptyRestPlaces(cell: Cell): Seq[Cell] = {
+      val (before, after) = restPlaces.partition(rest => rest._2 < cell._2)
+      before.reverse.takeWhile(contentOf(_) == ' ') ++ after.takeWhile(contentOf(_) == ' ')
+    }
+
     def occupiedRestPlaces: Seq[Cell] =
       restPlaces.filter(contentOf(_) != ' ')
 
@@ -133,7 +138,7 @@ object Day23 extends App {
     def allStepOuts(): Seq[Board] = {
       val boards = for (
         source <- stepOutCells;
-        target <- emptyRestPlaces;
+        target <- emptyRestPlaces(source);
         board <- move(source, target)
       ) yield board
       boards.toSeq
