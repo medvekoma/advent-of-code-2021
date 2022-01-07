@@ -26,5 +26,8 @@ object MatrixExtensions {
         c <- matrix(r).indices
       )
       yield (r, c)
+
+    def asString: String =
+      matrix.map(_.mkString).mkString("\n")
   }
 }
