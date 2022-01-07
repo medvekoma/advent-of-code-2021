@@ -1,7 +1,7 @@
 import utils.ListExtensions.RichList
 import utils.ResourceFile
 
-import scala.collection.mutable
+import scala.annotation.tailrec
 
 object Day19 extends App {
 
@@ -19,33 +19,46 @@ object Day19 extends App {
       }
     }
 
-  type PointDistances = Map[Set[Int], Seq[Point]]
-
-  def distance(a: Point, b: Point): Set[Int] =
+  def edge(a: Point, b: Point): Set[Int] =
     Set(Math.abs(a._1 - b._1), Math.abs(a._2 - b._2), Math.abs(a._3 - b._3))
 
-  def toDistance(block: Seq[Point]): PointDistances =
-    block
-      .combinations(2)
-      .map { case List(a, b) => (distance(a, b), Seq(a, b)) }
+  type Edges = Map[Set[Int], Seq[Point]]
+
+  def toEdges(block: Seq[Point]): Edges =
+    block.combinations(2)
+      .map { case List(a, b) => (edge(a, b), Seq(a, b)) }
       .toMap
 
-  def blockPairs(): Seq[(Int, Int, Seq[Point], Seq[Point])] = {
-    val pointDistances: Seq[PointDistances] =
-      blocks.map(b => toDistance(b))
+  type BlockPairs = Seq[(Int, Int, Seq[Point], Seq[Point])]
+
+  def blockPairs(): BlockPairs = {
+    val edgeBlocks: Seq[Edges] =
+      blocks.map(b => toEdges(b))
 
     for (
-      i <- pointDistances.indices;
-      j <- i + 1 until pointDistances.size;
-      dist1 = pointDistances(i);
-      dist2 = pointDistances(j);
-      commonKeys = dist1.keySet & dist2.keySet if commonKeys.size > 65
-    ) yield (i, j, commonKeys.flatMap(dist1(_)).toSeq, commonKeys.flatMap(dist2(_)).toSeq)
+      Seq((edge1, i1), (edge2, i2)) <- edgeBlocks.zipWithIndex.combinations(2).toSeq;
+      commonEdges = edge1.keySet & edge2.keySet if commonEdges.size > 65;
+      commonPoints1 = commonEdges.flatMap(edge1(_)).toSeq;
+      commonPoints2 = commonEdges.flatMap(edge2(_)).toSeq
+    ) yield (i1, i2, commonPoints1, commonPoints2)
   }
 
-  def buildTransformationMap(): Map[Int, Seq[Transformation]] = {
-    val pairs = blockPairs()
-    val transformationMap = mutable.HashMap(0 -> Seq.empty[Transformation])
+  type TransformationMap = Map[Int, Seq[Transformation]]
+  def buildTransformationMap(blockPairs: BlockPairs): TransformationMap = {
+
+    @tailrec
+    def collectTransformations(map: TransformationMap, newIndices: Set[Int]): TransformationMap = {
+      val newTransformations = blockPairs.collect {
+        case (i1, i2, c1, c2) if newIndices.contains(i1) => (i2, (i1, transformation(c1, c2)))
+        case (i1, i2, c1, c2) if newIndices.contains(i2) => (i1, (i2, transformation(c2, c1)))
+      }.toMap -- map.keySet
+      val newMap = newTransformations
+        .map { case (newIdx, (oldIdx, transformation)) => (newIdx, map(oldIdx) :+ transformation) }
+      if (newMap.isEmpty)
+        map
+      else
+        collectTransformations(map ++ newMap, newMap.keySet)
+    }
 
     // Returns the transformation that maps block2 to the coordinates of block1
     def transformation(block1: Seq[Point], block2: Seq[Point]): Transformation = {
@@ -70,8 +83,8 @@ object Day19 extends App {
           .distinct if diff.length == 1
       ) yield (multipliers(index2), diff.head)
 
-      beacon => {
-        val (x, y, z) = beacon
+      point => {
+        val (x, y, z) = point
         arguments match {
           case Seq((mx, dx), (my, dy), (mz, dz)) =>
             (
@@ -83,22 +96,10 @@ object Day19 extends App {
       }
     }
 
-    def collectTransformations(current: Int = 0): Unit = {
-      val newBlocks = pairs.collect {
-        case (i, j, c1, c2) if i == current => (j, transformation(c1, c2))
-        case (i, j, c1, c2) if j == current => (i, transformation(c2, c1))
-      }.toMap -- transformationMap.keySet
-      newBlocks.foreach { case (id, transformation) =>
-        transformationMap(id) = transformationMap(current) :+ transformation
-        collectTransformations(id)
-      }
-    }
-
-    collectTransformations()
-    transformationMap.toMap
+    collectTransformations(Map(0 -> Seq.empty[Transformation]), Set(0))
   }
 
-  lazy val transformationMap = buildTransformationMap()
+  lazy val transformationMap = buildTransformationMap(blockPairs())
 
   def beacons(): Set[Point] =
     transformationMap.flatMap { case (blockId, transformations) =>
@@ -106,7 +107,6 @@ object Day19 extends App {
         block.map(transformation)
       }
     }.toSet
-
 
   println(s"part 1: ${beacons().size}")
 
@@ -117,14 +117,14 @@ object Day19 extends App {
       }
     }.toSeq
 
-  def manhattan(beacon1: Point, beacon2: Point): Int = {
-    val (x1, y1, z1) = beacon1
-    val (x2, y2, z2) = beacon2
+  def manhattan(point1: Point, point2: Point): Int = {
+    val (x1, y1, z1) = point1
+    val (x2, y2, z2) = point2
     Math.abs(x1 - x2) + Math.abs(y1 - y2) + Math.abs(z1 - z2)
   }
 
-  def maxManhattan(beacons: Seq[Point]): Int = {
-    beacons.combinations(2)
+  def maxManhattan(points: Seq[Point]): Int = {
+    points.combinations(2)
       .map { case Seq(a, b) => manhattan(a, b) }
       .max
   }
