@@ -1,11 +1,9 @@
 import utils.MatrixExtensions._
 import utils.{Measure, ResourceFile}
 
-import scala.collection.mutable
-
 object Day23 extends App {
 
-  val lines = ResourceFile.readLines("day23a.txt")
+  val lines = ResourceFile.readLines("day23.txt")
   val width = lines.head.length
 
   val matrix = lines.tail.take(lines.size - 2)
@@ -46,8 +44,11 @@ object Day23 extends App {
       path.forall(cell => matrix(cell) == ' ')
 
     trait HomeState
+
     case object HomeReady extends HomeState
+
     case class HomeStepOut(fromCell: Cell) extends HomeState
+
     case class HomeStepIn(toCell: Cell) extends HomeState
 
     def homeState(ch: Char): HomeState = {
@@ -68,13 +69,13 @@ object Day23 extends App {
     def stepInCells: Set[Cell] = {
       homeMap.keySet
         .map(ch => homeState(ch))
-        .collect{ case HomeStepIn(cell) => cell }
+        .collect { case HomeStepIn(cell) => cell }
     }
 
     def stepOutCells: Set[Cell] = {
       homeMap.keySet
         .map(ch => homeState(ch))
-        .collect{ case HomeStepOut(cell) => cell }
+        .collect { case HomeStepOut(cell) => cell }
     }
 
     def stepInCell(ch: Char): Option[Cell] =
@@ -99,10 +100,7 @@ object Day23 extends App {
     def contentOf(cells: Seq[Cell]): Seq[Char] =
       cells.map(matrix(_))
 
-    def homeContent(ch: Char): String =
-      contentOf(homeMap(ch)).mkString
-
-    def step(source: Cell, target: Cell): Option[Board] = {
+    def move(source: Cell, target: Cell): Option[Board] = {
       costMap.get(matrix(source)) match {
         case None => None
         case Some(pieceCost) =>
@@ -114,51 +112,29 @@ object Day23 extends App {
       }
     }
 
-    def nextHome(ch: Char): Option[Cell] = {
-      val cells = homeMap(ch)
-      if ((contentOf(cells).toSet -- Set(ch, ' ')).isEmpty)
-        cells.findLast(matrix(_) == ' ')
-      else
-        None
-    }
-
-    def noStepOut(ch: Char): Boolean = {
-      (contentOf(homeMap(ch)).toSet -- Set(ch, ' ')).isEmpty
-    }
-
     def emptyRestPlaces: Seq[Cell] =
       restPlaces.filter(matrix(_) == ' ')
 
     def occupiedRestPlaces: Seq[Cell] =
       restPlaces.filter(matrix(_) != ' ')
 
-    def firstHomeRun(): Option[Board] = {
+    def firstStepIn(): Option[Board] = {
       val possibleRuns = for (
-        source <- occupiedRestPlaces.iterator;
+        source <- (occupiedRestPlaces ++ stepOutCells).iterator;
         ch = matrix(source);
         target <- stepInCell(ch);
-        board <- step(source, target)
+        board <- move(source, target)
       ) yield board
       possibleRuns.nextOption()
     }
 
-    def findDirectHomeRun(): Option[Board] = {
-      val possibleRuns = for (
-        source <- stepOutCells.iterator;
-        ch = matrix(source);
-        target <- stepInCell(ch);
-        board <- step(source, target)
-      ) yield board
-      possibleRuns.nextOption()
-    }
-
-    def findStepOuts(): Seq[Board] = {
-      val res = for (
+    def allStepOuts(): Seq[Board] = {
+      val boards = for (
         source <- stepOutCells;
         target <- emptyRestPlaces;
-        board <- step(source, target)
+        board <- move(source, target)
       ) yield board
-      res.toSeq
+      boards.toSeq
     }
 
     override def toString: String =
@@ -166,32 +142,21 @@ object Day23 extends App {
   }
 
   val board = new Board(matrix)
-//  val costs = mutable.ListBuffer[Int]()
-  var minCost = Int.MaxValue
 
-  def findSolution(board: Board): Unit = {
-//    println(board)
-    if (board.isReady) {
-      minCost = math.min(minCost, board.cost)
-//      costs += board.cost
-    } else board.firstHomeRun() match {
+  def findMinimumCost(board: Board): Option[Int] = {
+    if (board.isReady)
+      Some(board.cost)
+    else board.firstStepIn() match {
       case Some(newBoard) =>
-        findSolution(newBoard)
+        findMinimumCost(newBoard)
       case None =>
-        board.findDirectHomeRun() match {
-          case Some(newBoard) =>
-            findSolution(newBoard)
-          case None =>
-            board.findStepOuts().foreach(findSolution)
-        }
+        board.allStepOuts()
+          .flatMap(newBoard => findMinimumCost(newBoard))
+          .minOption
     }
   }
 
   Measure.dumpTime() {
-    findSolution(board)
-  }
-  Measure.dumpTime() {
-    println(minCost)
-//    println(s"min: ${costs.min}; count: ${costs.size}")
+    println(findMinimumCost(board))
   }
 }
