@@ -172,7 +172,7 @@ object Day23 extends App {
       else if (isReady) {
         shared.minCost = Math.min(cost, shared.minCost)
         Some(cost)
-      } else
+      } else {
         firstStepIn() match {
           case Some(board) =>
             board.findMinimumCost()
@@ -181,6 +181,7 @@ object Day23 extends App {
               .flatMap(board => board.findMinimumCost())
               .minOption
         }
+      }
     }
   }
 
