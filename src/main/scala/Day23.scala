@@ -50,9 +50,10 @@ object Day23 extends App {
     private def pathCells(source: Cell, target: Cell): Seq[Cell] = {
       val (sourceRow, sourceCol) = source
       val (targetRow, targetCol) = target
-      ((sourceRow - 1 until 0 by -1).map(row => (row, sourceCol)) ++
-        (Math.min(sourceCol, targetCol) to Math.max(sourceCol, targetCol)).map(col => (0, col)) ++
-        (0 to targetRow).map(row => (row, targetCol))).distinct.filterNot(_ == source)
+      val direction = if (targetCol < sourceCol) 1 else -1
+      (0 until sourceRow).map(row => (row, sourceCol)) ++
+        (targetCol until sourceCol by direction).map(col => (0, col)) ++
+        (1 to targetRow).map(row => (row, targetCol))
     }
 
     private def isValidMove(path: Seq[Cell]): Boolean =
