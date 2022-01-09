@@ -12,6 +12,10 @@ object Day23 extends App {
 
   type Cell = (Int, Int)
 
+  class Shared {
+    @volatile var minCost: Int = Int.MaxValue
+  }
+
   object Board {
     private val costMap: Map[Char, Int] = Map(
       'A' -> 1,
@@ -30,11 +34,11 @@ object Day23 extends App {
       val homeRows = (1 until matrix.rows).toList
       val homeMap: Map[Char, List[Cell]] =
         homeCols.map { case (ch, col) => (ch, homeRows.map((_, col))) }
-      Board(cellMap, cost = 0, homeMap, matrix.rows)
+      Board(cellMap, cost = 0, homeMap, matrix.rows, new Shared)
     }
   }
 
-  case class Board(cellMap: Map[Cell, Char], cost: Int, homeMap: Map[Char, List[Cell]], rows: Int) {
+  case class Board(cellMap: Map[Cell, Char], cost: Int, homeMap: Map[Char, List[Cell]], rows: Int, shared: Shared) {
 
     private def replace(source: Cell, target: Cell): Map[Cell, Char] = {
       val ch = cellMap(source)
@@ -98,18 +102,18 @@ object Day23 extends App {
       }
 
     def stepInCells: Map[Char, Cell] =
-      homeMap.keys
+      Seq('D', 'C', 'B', 'A')
         .map(ch => (ch, stepInCell(ch)))
         .collect { case (ch, Some(cell)) => (ch, cell) }
         .toMap
 
     def stepOutCells: Seq[Cell] =
-      homeMap.keys
+      Seq('D', 'C', 'B', 'A')
         .flatMap(stepOutCell)
         .toSeq
 
     def isReady: Boolean =
-      homeMap.keys.forall(ch => homeState(ch) == HomeReady)
+      Seq('D', 'C', 'B', 'A').forall(ch => homeState(ch) == HomeReady)
 
     def move(source: Cell, target: Cell): Option[Board] =
       Board.costMap.get(contentOf(source)) match {
@@ -157,17 +161,24 @@ object Day23 extends App {
       cost.toString + matrix.map(_.mkString).mkString("\n", "\n", "\n")
     }
 
+    def isTooExpensive: Boolean =
+      this.cost > shared.minCost
+
     def findMinimumCost(): Option[Int] = {
-      if (isReady)
+      if (isTooExpensive)
+        None
+      else if (isReady) {
+        shared.minCost = Math.min(cost, shared.minCost)
         Some(cost)
-      else firstStepIn() match {
-        case Some(board) =>
-          board.findMinimumCost()
-        case None =>
-          allStepOuts()
-            .flatMap(board => board.findMinimumCost())
-            .minOption
-      }
+      } else
+        firstStepIn() match {
+          case Some(board) =>
+            board.findMinimumCost()
+          case None =>
+            allStepOuts()
+              .flatMap(board => board.findMinimumCost())
+              .minOption
+        }
     }
   }
 
