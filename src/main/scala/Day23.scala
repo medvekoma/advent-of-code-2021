@@ -50,10 +50,10 @@ object Day23 extends App {
     private def pathCells(source: Cell, target: Cell): Seq[Cell] = {
       val (sourceRow, sourceCol) = source
       val (targetRow, targetCol) = target
-      val direction = if (targetCol < sourceCol) 1 else -1
-      (0 until sourceRow).map(row => (row, sourceCol)) ++
-        (targetCol until sourceCol by direction).map(col => (0, col)) ++
-        (1 to targetRow).map(row => (row, targetCol))
+      val increment = if (targetCol < sourceCol) 1 else -1
+      (targetRow until 0 by -1).map(row => (row, targetCol)) ++
+        (targetCol until sourceCol by increment).map(col => (0, col)) ++
+        (0 until sourceRow).map(row => (row, sourceCol))
     }
 
     private def isValidMove(path: Seq[Cell]): Boolean =
@@ -75,7 +75,7 @@ object Day23 extends App {
 
     def homeState(ch: Char): HomeState = {
       val cells = shared.homeMap(ch)
-      val content = contentOf(cells).distinct.sorted
+      val content = contentOf(cells).distinct
       content match {
         case Seq(`ch`) =>
           HomeReady
@@ -104,11 +104,10 @@ object Day23 extends App {
           None
       }
 
-    def stepInCells: Map[Char, Cell] =
+    def stepInCells: List[(Char, Cell)] =
       letters
         .map(ch => (ch, stepInCell(ch)))
         .collect { case (ch, Some(cell)) => (ch, cell) }
-        .toMap
 
     def stepOutCells: Seq[Cell] =
       letters
