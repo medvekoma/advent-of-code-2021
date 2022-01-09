@@ -1,3 +1,4 @@
+import Day23.Board.letters
 import utils.EnumerationExtensions.RichSeq
 import utils.MatrixExtensions._
 import utils.{Measure, ResourceFile}
@@ -7,16 +8,13 @@ object Day23 extends App {
   val lines = ResourceFile.readLines("day23.txt")
   val width = lines.head.length
 
-  val matrix = lines.tail.take(lines.size - 2)
+  val matrix = lines.tail.take(lines.length - 2)
     .map(line => line.replace('.', ' ').padTo(width, ' ').toList)
 
   type Cell = (Int, Int)
 
-  class Shared {
-    @volatile var minCost: Int = Int.MaxValue
-  }
-
   object Board {
+    private val letters = List('D', 'C', 'B', 'A')
     private val costMap: Map[Char, Int] = Map(
       'A' -> 1,
       'B' -> 10,
@@ -26,19 +24,23 @@ object Day23 extends App {
     private val homeCols = Map('A' -> 3, 'B' -> 5, 'C' -> 7, 'D' -> 9)
     private val restPlaces = Seq(1, 2, 4, 6, 8, 10, 11).map((0, _)).toList
 
+    case class Shared(rows: Int, homeMap: Map[Char, List[Cell]]) {
+      @volatile var minCost: Int = Int.MaxValue
+    }
+
     def fromMatrix(matrix: List[List[Char]]): Board = {
       val cellMap = matrix.cells
         .map(cell => (cell, matrix(cell)))
-        .filter { case (cell, ch) => "ABCD".contains(ch) }
+        .filter { case (_, ch) => letters.contains(ch) }
         .toMap
       val homeRows = (1 until matrix.rows).toList
       val homeMap: Map[Char, List[Cell]] =
         homeCols.map { case (ch, col) => (ch, homeRows.map((_, col))) }
-      Board(cellMap, cost = 0, homeMap, matrix.rows, new Shared)
+      Board(cellMap, cost = 0, Shared(matrix.rows, homeMap))
     }
   }
 
-  case class Board(cellMap: Map[Cell, Char], cost: Int, homeMap: Map[Char, List[Cell]], rows: Int, shared: Shared) {
+  case class Board(cellMap: Map[Cell, Char], cost: Int, shared: Board.Shared) {
 
     private def replace(source: Cell, target: Cell): Map[Cell, Char] = {
       val ch = cellMap(source)
@@ -71,7 +73,7 @@ object Day23 extends App {
       cells.map(contentOf)
 
     def homeState(ch: Char): HomeState = {
-      val cells = homeMap(ch)
+      val cells = shared.homeMap(ch)
       val content = contentOf(cells).distinct.sorted
       content match {
         case Seq(`ch`) =>
@@ -102,18 +104,17 @@ object Day23 extends App {
       }
 
     def stepInCells: Map[Char, Cell] =
-      Seq('D', 'C', 'B', 'A')
+      letters
         .map(ch => (ch, stepInCell(ch)))
         .collect { case (ch, Some(cell)) => (ch, cell) }
         .toMap
 
     def stepOutCells: Seq[Cell] =
-      Seq('D', 'C', 'B', 'A')
+      letters
         .flatMap(stepOutCell)
-        .toSeq
 
     def isReady: Boolean =
-      Seq('D', 'C', 'B', 'A').forall(ch => homeState(ch) == HomeReady)
+      letters.forall(ch => homeState(ch) == HomeReady)
 
     def move(source: Cell, target: Cell): Option[Board] =
       Board.costMap.get(contentOf(source)) match {
@@ -121,7 +122,7 @@ object Day23 extends App {
         case Some(pieceCost) =>
           val path = pathCells(source, target)
           if (isValidMove(path))
-            Some(this.copy(cellMap = replace(source, target), cost = this.cost + pieceCost * path.size))
+            Some(this.copy(cellMap = replace(source, target), cost = this.cost + pieceCost * path.length))
           else
             None
       }
@@ -157,7 +158,7 @@ object Day23 extends App {
 
     override def toString: String = {
       val cols = Board.restPlaces.map(_._2).last
-      val matrix = List.tabulate(rows, cols)((r, c) => contentOf((r, c)))
+      val matrix = List.tabulate(shared.rows, cols)((r, c) => contentOf((r, c)))
       cost.toString + matrix.map(_.mkString).mkString("\n", "\n", "\n")
     }
 
@@ -185,11 +186,11 @@ object Day23 extends App {
   val board2 = Board.fromMatrix(matrix)
   val board1 = Board.fromMatrix(matrix.take(2) ++ matrix.drop(4))
 
-  println("This will take less than a minute ...")
+  println("Please hold on for a couple of seconds ...")
   Measure.dumpTime() {
     println(s"part 1: ${board1.findMinimumCost()}")
   }
-  println("Please hold on ...")
+  println("... and a few more seconds ...")
   Measure.dumpTime() {
     println(s"part 2: ${board2.findMinimumCost()}")
   }
