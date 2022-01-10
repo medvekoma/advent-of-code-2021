@@ -7,7 +7,7 @@ object Day17 extends App {
 
   val lines = ResourceFile.readLines("day17.txt")
 
-  val pattern = "^target.+: x=(\\-?\\d+)..(\\-?\\d+), y=(\\-?\\d+)..(\\-?\\d+)".r
+  val pattern = "^target.+: x=(-?\\d+)..(-?\\d+), y=(-?\\d+)..(-?\\d+)".r
   lines
     .collect { case pattern(x1, x2, y1, y2) => new Playground(x1.toInt, x2.toInt, y1.toInt, y2.toInt) }
     .foreach(_.play())

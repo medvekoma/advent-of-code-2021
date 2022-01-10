@@ -1,12 +1,12 @@
 import utils.ResourceFile
 
 import scala.annotation.tailrec
-import scala.math.{ceil, exp, floor}
+import scala.math.{ceil, floor}
 import scala.util.matching.Regex
 
 object Day18 extends App {
 
-  val pairPattern: Regex = "\\[(\\d+),(\\d+)\\]".r
+  val pairPattern: Regex = "\\[(\\d+),(\\d+)]".r
   val lastNumberPattern: Regex = "(\\d+)[^\\d]*$".r
   val firstNumberPattern: Regex = "(\\d+)".r
   val splitPattern: Regex = "\\d\\d+".r
@@ -35,7 +35,7 @@ object Day18 extends App {
         val newRight = firstNumberPattern.findFirstMatchIn(right)
           .map(m => right.take(m.start) + (m.group(1).toInt + b) + right.substring(m.start + m.group(1).length))
           .getOrElse(right)
-        Some(s"${newLeft}0${newRight}")
+        Some(s"${newLeft}0$newRight")
     }
   }
 
@@ -82,13 +82,12 @@ object Day18 extends App {
   class Parser(body: String) {
     private var head: Int = 0
 
-    def parse(): Node = {
+    def parse(): Node =
       body(head) match {
         case '[' => parsePair()
         case n if ('0' to '9').contains(n) => parseNumber()
         case _ => throw new RuntimeException(s"Syntax error at: ${body.substring(head)}")
       }
-    }
 
     def parseNumber(): Node = {
       val str = body.substring(head).takeWhile(_.isDigit)
@@ -96,7 +95,7 @@ object Day18 extends App {
       Number(str.toInt)
     }
 
-    def read(chars: Int) = {
+    def read(chars: Int): String = {
       head += chars
       body.substring(head - chars, head)
     }

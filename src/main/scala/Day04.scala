@@ -21,7 +21,7 @@ object Day04 extends App {
     .map { case (number, guesses) => (guesses, boards.find(_.isBingo(guesses)))}
     .find { case (guesses, maybeBoard) => maybeBoard.isDefined }
 
-  val solution1 = result.headOption match {
+  val solution1 = result match {
     case Some((guesses, Some(board))) =>
       board.getUnmarked(guesses).sum * guesses.last
 

@@ -66,7 +66,7 @@ object Day11 extends App {
   }
 
   val octopuses1 = new Octopuses(array)
-  val part1 = (1 to 100).foldLeft(0) { (total, i) =>
+  val part1 = (1 to 100).foldLeft(0) { (total, _) =>
     total + octopuses1.step()
   }
   println(s"part 1: $part1")
