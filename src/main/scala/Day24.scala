@@ -1,81 +1,62 @@
-import utils.{Measure, ResourceFile}
-
-import scala.collection.mutable
-import scala.collection.parallel.CollectionConverters._
-import scala.util.Try
+import utils.ResourceFile
 
 object Day24 extends App {
 
-  case class Line(op: String, r1: String, r2: String)
+  /*
+  This solution is based on the following observations:
+  - The input is divided in 14 blocks that have 18 lines each
+  - Each block is dependent only on the z value of the previous block
+  - Each block differs only in 3 lines. There are two types of blocks:
+    - BlockType1 with div 1 in line 5. The first condition is always false, so it evaluates to a simple expression for z
+    - BlockType2 with div 26 in line 5. It can evaluate to two different expressions
+  - There are 7 pieces of each block type. Block1 roughly multiplies z by 26, therefore Block2 should divide z by 26,
+    so that the end result converges to 0. Therefore the else branch of BlockType2.evaluate is ignored.
+   */
 
-  val iterator = (13 to 0 by -1).iterator
   val blocks = ResourceFile.readLines("day24.txt")
     .map(_.split(" "))
-    .map(arr => Line(arr(0), arr(1), Try(arr(2)).getOrElse(iterator.next().toString)))
     .sliding(18, 18)
     .toList
 
-  def binary(fn: (Long, Long) => Long, valid1: Long => Boolean = _ => true, valid2: Long => Boolean = _ => true)
-            (x1: Long, x2: Long): Option[Long] = {
-    if (valid1(x1) && valid2(x2))
-      Some(fn(x1, x2))
-    else
-      None
+  sealed trait BlockType {
+    def evaluate(w: Long, z: Long): Option[Long]
   }
 
-  def instruction(op: String) = op match {
-    case "add" => binary(_ + _) _
-    case "mul" => binary(_ * _) _
-    case "div" => binary(_ / _, valid2 = _ != 0) _
-    case "mod" => binary(_ % _, valid1 = _ >= 0, valid2 = _ > 0) _
-    case "eql" => binary((a, b) => if (a == b) 1L else 0L) _
+  case class BlockType1(addX: Int, addY: Int) extends BlockType {
+    override def evaluate(w: Long, z: Long): Option[Long] =
+      Some(26 * z + w + addY)
   }
 
-  def calculateZ(block: Seq[Line], w: Long, prevZ: Long): Option[Long] = {
-    val registers = mutable.HashMap(
-      "w" -> w,
-      "z" -> prevZ,
-      "x" -> 0L, "y" -> 0L
-    )
-
-    def getValue(reg: String) = registers.getOrElse(reg, reg.toLong)
-
-    def evaluate(line: Line): Option[Long] = instruction(line.op)(getValue(line.r1), getValue(line.r2))
-
-    block.tail.foreach { line =>
-      evaluate(line) match {
-        case None => return None
-        case Some(value) =>
-          registers(line.r1) = value
-      }
-    }
-    registers.get("z")
+  case class BlockType2(addX: Int, addY: Int) extends BlockType {
+    override def evaluate(w: Long, z: Long): Option[Long] =
+      if (z % 26 + addX == w)
+        Some(z / 26)
+      else
+        None // Some(z / 26 * 26 + w + addY)
   }
 
-  def calculateBlock(block: Seq[Line], takeovers: Map[Long, (String, String)]): Map[Long, (String, String)] = {
-    val res = for (
-      w <- 1L to 9L;
-      (prevZ, (min, max)) <- takeovers.par;
-      z <- calculateZ(block, w, prevZ)
-    ) yield (z, (min + w, max + w))
-    res
-      .groupMap(_._1)(_._2).par
-      .map { case (z, monads) => (z, (monads.map(_._1).min, monads.map(_._2).max)) }
-      .seq
+  val typedBlocks = blocks
+    .map(block => block(4).last match {
+      case "1" => BlockType1(block(5).last.toInt, block(15).last.toInt)
+      case "26" => BlockType2(block(5).last.toInt, block(15).last.toInt)
+    })
+
+  def evaluateBlock(block: BlockType, zValues: Map[Long, (String, String)]): Map[Long, (String, String)] = {
+    val results = for (
+      w <- 1 to 9;
+      (prevZ, (minCode, maxCode)) <- zValues;
+      nextZ <- block.evaluate(w, prevZ)
+    ) yield (nextZ, (minCode + w, maxCode + w))
+    results
+      .groupMap(_._1)(_._2)
+      .map { case (key, values) => (key, (values.map(_._1).min, values.map(_._2).max)) }
   }
 
-  def calculateMonad(): (String, String) = {
-    var takeovers = Map(0L -> ("", ""))
-    for ((block, blockId) <- blocks.zipWithIndex) {
-      println(s"$blockId / ${blocks.size}")
-      takeovers = calculateBlock(block, takeovers)
-    }
-    takeovers(0)
-  }
+  val initial = Map(0L -> ("", ""))
+  val zValues = typedBlocks
+    .foldLeft(initial)((zValues, block) => evaluateBlock(block, zValues))
 
-  val (min, max) = Measure.dumpTime() {
-    calculateMonad()
-  }
-  println(s"part 1: $max")
-  println(s"part 2: $min")
+  val result = zValues(0L)
+  println(s"part 1: ${result._2}")
+  println(s"part 2: ${result._1}")
 }
